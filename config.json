@@ -14,15 +14,32 @@
     "max_position_size": 0.5
   },
   "risk_management": {
-    "stop_loss": 2.0,
-    "take_profit": 3.5,
+    "stop_loss": 1.5,
+    "take_profit": 3.0,
     "trailing_stop": 1.5,
     "trailing_activation": 1.0,
     "max_position_size_percent": 30,
-    "max_daily_loss": 5.0,
+    "max_daily_loss": 3.0,
     "max_consecutive_losses": 5,
     "max_drawdown": 15.0,
-    "risk_per_trade": 1.0
+    "risk_per_trade": 1.0,
+    "use_dynamic_sl_tp": true,
+    "atr_multiplier_sl": 1.5,
+    "atr_multiplier_tp": 3.0
+  },
+  "trend_filter": {
+    "enabled": true,
+    "ema_period": 200,
+    "trend_threshold_long": 1.005,
+    "trend_threshold_short": 0.995,
+    "block_counter_trend": true
+  },
+  "risk_circuit_breaker": {
+    "enabled": true,
+    "max_consecutive_losses": 5,
+    "daily_loss_limit": 3.0,
+    "block_duration_hours": 24,
+    "auto_reset_daily": true
   },
   "strategy": {
     "default_strategy": "multi_signal_fusion",
