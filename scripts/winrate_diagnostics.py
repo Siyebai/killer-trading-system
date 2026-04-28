@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 胜率诊断系统
+杀手锏交易系统 v1.0.3 - 胜率诊断系统
 全面诊断系统，识别胜率低的根本原因
 """
 import sys
@@ -29,14 +29,14 @@ class WinRateDiagnostics:
         self.logger = logging.getLogger("winrate_diagnostics")
         self.results = {
             "timestamp": datetime.now().isoformat(),
-            "version": "v1.0.2",
+            "version": "v1.0.3",
             "diagnostics": {}
         }
 
     def diagnose_all(self):
         """执行所有诊断"""
         print("=" * 70)
-        print("🔍 杀手锏交易系统 v1.0.2 - 全面胜率诊断")
+        print("🔍 杀手锏交易系统 v1.0.3 - 全面胜率诊断")
         print("=" * 70)
 
         # 诊断1：检查历史回测结果

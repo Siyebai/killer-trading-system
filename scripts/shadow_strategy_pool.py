@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-影子策略池管理器 - v1.0.2 Integrated
+影子策略池管理器 - v1.0.3 Integrated
 管理策略实验室产生的候选策略，沙盒验证
 """
 

@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("adaptive_regime_switch")
 """
-自适应市场切换模块 - v1.0.2
+自适应市场切换模块 - v1.0.3
 集成regime分类器，趋势市用趋势策略，震荡市自动切换均值回归子策略
 核心策略：市场状态识别 + 动态策略切换
 """
@@ -379,7 +379,7 @@ def main():
         switcher = AdaptiveRegimeSwitcher(config)
 
         logger.info("=" * 70)
-        logger.info("🔄 自适应市场切换 - v1.0.2")
+        logger.info("🔄 自适应市场切换 - v1.0.3")
         logger.info("=" * 70)
 
         # 准备特征

@@ -282,7 +282,7 @@ class AnomalyDetector:
 
     def detect(self, data_point: np.ndarray, metric_name: str = "") -> Optional[AnomalyEvent]:
         """
-        检测异常（v1.0.2 Stable - 阈值检测）
+        检测异常（v1.0.3 Stable - 阈值检测）
 
         Args:
             data_point: 数据点
@@ -292,7 +292,7 @@ class AnomalyDetector:
             异常事件或None
         """
         try:
-            # v1.0.2 Stable: 使用简化的阈值检测（替代Isolation Forest）
+            # v1.0.3 Stable: 使用简化的阈值检测（替代Isolation Forest）
             metric_value = float(data_point[-1]) if len(data_point) > 0 else 0.0
 
             # 第一层防御：根据指标名称设置阈值
@@ -392,7 +392,7 @@ class AnomalyDetector:
                               metric_value: float,
                               threshold: float) -> Tuple[AnomalyType, Severity]:
         """
-        根据阈值分类异常（v1.0.2 Stable）
+        根据阈值分类异常（v1.0.3 Stable）
 
         Args:
             metric_name: 指标名称

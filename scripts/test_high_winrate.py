@@ -142,7 +142,7 @@ def run_backtest(strategy, df, min_confidence=0.7):
 
 def main():
     print("=" * 70)
-    print("🚀 高胜率策略回测 - v1.0.2")
+    print("🚀 高胜率策略回测 - v1.0.3")
     print("=" * 70)
 
     # 创建策略

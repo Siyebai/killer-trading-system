@@ -151,7 +151,7 @@ def run_high_volatility_test():
     report = {
         'test_name': 'High Volatility Market Stress Test',
         'timestamp': datetime.now().isoformat(),
-        'version': 'v1.0.2',
+        'version': 'v1.0.3',
 
         'market_conditions': {
             'data_points': len(kline_data),

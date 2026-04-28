@@ -335,7 +335,7 @@ class BacktestAdapter:
                         indicators: Dict[str, float],
                         current_bar: np.ndarray) -> 'Signal':
         """
-        生成交易信号（v1.0.2 Stable - 简化规则）
+        生成交易信号（v1.0.3 Stable - 简化规则）
 
         Args:
             individual: 策略个体

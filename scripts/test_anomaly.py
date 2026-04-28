@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-异常检测测试 - v1.0.2 Stable
+异常检测测试 - v1.0.3 Stable
 """
 
 import sys
@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath('.'))
 import numpy as np
 
 print("=" * 60)
-print("异常检测测试 - v1.0.2 Stable")
+print("异常检测测试 - v1.0.3 Stable")
 print("=" * 60)
 
 from scripts.anomaly_detector import AnomalyDetector, AnomalyType, Severity
@@ -26,7 +26,7 @@ print(f"✓ 训练数据: {normal_data.shape}")
 
 # 训练（阈值检测模式，跳过Isolation Forest）
 print("\n训练检测器（阈值模式）...")
-# v1.0.2 Stable: 阈值检测无需训练
+# v1.0.3 Stable: 阈值检测无需训练
 print("✓ 检测器就绪")
 
 # 测试1: 正常数据

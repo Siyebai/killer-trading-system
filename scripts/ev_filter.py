@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-预期价值(Expected Value, EV)过滤模块 — v1.0.2 加固版
+预期价值(Expected Value, EV)过滤模块 — v1.0.3 加固版
 基于数学期望过滤低质量交易,显著提升胜率和夏普比率
 
 核心公式:
 EV = confidence * tp_pct - (1 - confidence) * sl_pct - (taker_fee + slippage + spread/2)
 仅当 EV > min_ev 时才执行交易
 
-v1.0.2 加固:
+v1.0.3 加固:
 - 全量 print→logging 迁移
 - calculate_ev 添加防御性错误处理(除零/无效输入)
 - batch_filter 单条异常不影响批量处理
@@ -415,7 +415,7 @@ class EVFilter:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="EV过滤模块 v1.0.2")
+    parser = argparse.ArgumentParser(description="EV过滤模块 v1.0.3")
     parser.add_argument('--symbol', type=str, default='BTCUSDT')
     parser.add_argument('--direction', type=str, default='LONG', choices=['LONG', 'SHORT'])
     parser.add_argument('--confidence', type=float, required=True)

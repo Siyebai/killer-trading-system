@@ -136,7 +136,7 @@ def run_backtest(system, df, min_confidence=0.65):
 
 def main():
     print("=" * 70)
-    print("🚀 终极胜率系统验证 - v1.0.2")
+    print("🚀 终极胜率系统验证 - v1.0.3")
     print("=" * 70)
 
     # 创建系统
@@ -165,7 +165,7 @@ def main():
 
     # 保存结果
     output = {
-        'version': 'v1.0.2',
+        'version': 'v1.0.3',
         'result': result,
         'target_win_rate': 0.65,
         'achieved': result['win_rate'] >= 0.65

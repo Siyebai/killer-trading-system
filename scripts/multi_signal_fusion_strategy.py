@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 多信号融合策略
+杀手锏交易系统 v1.0.3 - 多信号融合策略
 目标胜率：65%+
 核心原理：多指标融合 + 信号确认 + 市场环境识别 + 动态出场
 """
@@ -30,7 +30,7 @@ class MultiSignalFusionStrategy:
         """初始化策略"""
         self.project_root = Path("/workspace/projects/trading-simulator")
         self.config = self._load_config(config_path)
-        self.version = "v1.0.2"
+        self.version = "v1.0.3"
 
         # 信号权重配置
         self.signal_weights = {
@@ -414,7 +414,7 @@ class MultiSignalFusionStrategy:
 def main():
     """测试函数"""
     print("=" * 70)
-    print("🚀 多信号融合策略测试 - v1.0.2")
+    print("🚀 多信号融合策略测试 - v1.0.3")
     print("=" * 70)
 
     # 创建策略实例

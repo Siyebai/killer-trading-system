@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-统一模型定义 - v1.0.2 Integrated
+统一模型定义 - v1.0.3 Integrated
 整合系统中所有重复的数据模型定义
 """
 

@@ -146,7 +146,7 @@ def run_backtest(system, df, min_confidence, risk_reward):
 
 def main():
     print("=" * 70)
-    print("🚀 最终胜率优化 - v1.0.2")
+    print("🚀 最终胜率优化 - v1.0.3")
     print("=" * 70)
 
     # 创建系统
@@ -208,7 +208,7 @@ def main():
 
         # 保存最终结果
         output = {
-            'version': 'v1.0.2',
+            'version': 'v1.0.3',
             'best_params': best_params,
             'result': best_result,
             'target_win_rate': 0.65,
@@ -216,7 +216,7 @@ def main():
             'improvement': best_result['win_rate'] - 0.65
         }
 
-        output_path = "/workspace/projects/trading-simulator/final_winrate_optimization_v1.0.2.json"
+        output_path = "/workspace/projects/trading-simulator/final_winrate_optimization_v1.0.3.json"
         with open(output_path, 'w') as f:
             json.dump(output, f, indent=2)
 

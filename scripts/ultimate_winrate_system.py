@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 终极胜率系统
+杀手锏交易系统 v1.0.3 - 终极胜率系统
 目标胜率：65%+
 核心原理：
 1. 多策略组合（统计套利+趋势跟踪+突破策略）
@@ -35,7 +35,7 @@ class UltimateWinrateSystem:
         """初始化系统"""
         self.project_root = Path("/workspace/projects/trading-simulator")
         self.config = self._load_config(config_path)
-        self.version = "v1.0.2"
+        self.version = "v1.0.3"
 
         # 子策略权重（动态调整）
         self.strategy_weights = {
@@ -372,7 +372,7 @@ class UltimateWinrateSystem:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("🚀 终极胜率系统测试 - v1.0.2")
+    print("🚀 终极胜率系统测试 - v1.0.3")
     print("=" * 70)
 
     # 创建系统

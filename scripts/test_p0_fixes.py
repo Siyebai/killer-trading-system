@@ -244,7 +244,7 @@ def main():
 
     # 保存结果
     output = {
-        'version': 'v1.0.2-FIXED',
+        'version': 'v1.0.3-FIXED',
         'test_date': pd.Timestamp.now().isoformat(),
         'results': results,
         'summary': {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-策略生命周期管理器 - v1.0.2 Integrated
+策略生命周期管理器 - v1.0.3 Integrated
 管理策略的出生→验证→激活→衰退→退役全生命周期
 """
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 高胜率策略（经过验证的版本）
+杀手锏交易系统 v1.0.3 - 高胜率策略（经过验证的版本）
 目标胜率：65%+
 核心原理：
 1. 三重确认机制（趋势+动量+成交量）
@@ -35,7 +35,7 @@ class HighWinrateStrategy:
         """初始化策略"""
         self.project_root = Path("/workspace/projects/trading-simulator")
         self.config = self._load_config(config_path)
-        self.version = "v1.0.2"
+        self.version = "v1.0.3"
 
         logger.info(f"✅ 高胜率策略 {self.version} 初始化完成")
 
@@ -280,7 +280,7 @@ class HighWinrateStrategy:
 
 if __name__ == "__main__":
     print("=" * 70)
-    print("🚀 高胜率策略测试 - v1.0.2")
+    print("🚀 高胜率策略测试 - v1.0.3")
     print("=" * 70)
 
     # 创建策略

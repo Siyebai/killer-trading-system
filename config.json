@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v1.0.2",
+    "version": "v1.0.3",
     "environment": "production",
     "log_level": "INFO"
   },
@@ -32,7 +32,8 @@
     "ema_period": 200,
     "trend_threshold_long": 1.005,
     "trend_threshold_short": 0.995,
-    "block_counter_trend": true
+    "block_counter_trend": true,
+    "max_short_ratio": 0.5
   },
   "risk_circuit_breaker": {
     "enabled": true,

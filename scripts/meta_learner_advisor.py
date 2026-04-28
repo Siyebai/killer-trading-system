@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-元学习建议器 - v1.0.2 Integrated
+元学习建议器 - v1.0.3 Integrated
 影子模式并行运行，输出建议动作与LinUCB对比分析
 """
 

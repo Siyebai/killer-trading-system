@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-系统整合器 - v1.0.2 Integrated
+系统整合器 - v1.0.3 Integrated
 整合所有模块为有机整体，实现协同工作
 """
 

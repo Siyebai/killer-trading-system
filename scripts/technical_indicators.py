@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-通用技术指标工具 - v1.0.2 Integrated
+通用技术指标工具 - v1.0.3 Integrated
 统一的技术指标计算库，支持多种输入类型
 """
 

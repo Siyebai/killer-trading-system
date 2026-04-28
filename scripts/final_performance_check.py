@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-最终性能验证工具 - v1.0.2 Integrated
+最终性能验证工具 - v1.0.3 Integrated
 验证系统是否达到完美工业级标准
 """
 

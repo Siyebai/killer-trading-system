@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 修复版（P0致命问题修复）
+杀手锏交易系统 v1.0.3 - 修复版（P0致命问题修复）
 修复内容：
 1. 趋势方向过滤器 - 防止单边做多/做空
 2. 连续亏损熔断 - 防止爆仓
@@ -39,7 +39,7 @@ class FixedUltimateStrategy:
         """初始化策略"""
         self.project_root = Path("/workspace/projects/trading-simulator")
         self.config = self._load_config(config_path)
-        self.version = "v1.0.2-FIXED"
+        self.version = "v1.0.3-FIXED"
 
         # 基础策略系统
         self.base_strategy = UltimateWinrateSystem(config_path)

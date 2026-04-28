@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-性能监控工具 - v1.0.2 Integrated
+性能监控工具 - v1.0.3 Integrated
 统一的性能基准测试和监控
 """
 
@@ -239,7 +239,7 @@ class PerformanceMonitor:
 if __name__ == "__main__":
     monitor = PerformanceMonitor()
     
-    print("性能监控工具 - v1.0.2 Integrated")
+    print("性能监控工具 - v1.0.3 Integrated")
     print("正在采集性能基线...")
     
     metrics = monitor.collect_baseline()

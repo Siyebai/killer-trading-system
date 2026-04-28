@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-策略个体类型定义 - v1.0.2 Integrated
+策略个体类型定义 - v1.0.3 Integrated
 打破循环依赖，提供统一的策略个体类型定义
 """
 

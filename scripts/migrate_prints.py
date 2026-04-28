@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-日志迁移工具 - v1.0.2 Stable
+日志迁移工具 - v1.0.3 Stable
 将print语句迁移到结构化日志
 """
 

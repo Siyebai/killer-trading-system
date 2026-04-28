@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 总控中心（最终整合版）
+杀手锏交易系统 v1.0.3 - 总控中心（最终整合版）
 整合自我检查、自我修复、自我优化体系，实现全局状态管理、健康监控、异常自动修复、多币种任务调度
 
-基于现有v1.0.2 guardian_daemon.py + self_healing_system.py 整合升级
+基于现有v1.0.3 guardian_daemon.py + self_healing_system.py 整合升级
 整合优化建议：状态行为矩阵、内建探针、内建修复策略、在线/离线优化闭环
 
 核心设计：
@@ -855,7 +855,7 @@ class GlobalController:
         )
         
         logger.debug(f"\n{'='*60}")
-        logger.debug(f"  杀手锏交易系统 v1.0.2 - 总控中心已启动")
+        logger.debug(f"  杀手锏交易系统 v1.0.3 - 总控中心已启动")
         logger.debug(f"{'='*60}")
         logger.debug(f"  系统状态: {self.global_state.get().value}")
         logger.debug(f"  健康检查: {self.config.get('health_check_interval', 30)}s")
@@ -919,7 +919,7 @@ class GlobalController:
         status = self.get_status()
         sm = status['state_matrix']
         logger.info(f"\n{'='*60}")
-        logger.info(f"  杀手锏交易系统 v1.0.2 - 系统状态")
+        logger.info(f"  杀手锏交易系统 v1.0.3 - 系统状态")
         logger.info(f"{'='*60}")
         logger.info(f"  状态: {status['system_state']} ({status['state_reason']})")
         logger.info(f"  运行: {status['uptime_seconds']}s | 健康: {status['health_score']:.0f}%")
@@ -978,7 +978,7 @@ async def demo():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="杀手锏交易系统 v1.0.2 - 总控中心")
+    parser = argparse.ArgumentParser(description="杀手锏交易系统 v1.0.3 - 总控中心")
     parser.add_argument('--action', choices=['start', 'status', 'demo'], default='demo')
     parser.add_argument('--config', type=str, default='assets/configs/killer_config_v60.json')
     args = parser.parse_args()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-合规审计系统 - v1.0.2 Integrated
+合规审计系统 - v1.0.3 Integrated
 记录所有决策事件，支持时间点回放，不可篡改审计
 """
 

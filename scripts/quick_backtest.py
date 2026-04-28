@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-快速回测测试 - v1.0.2 Stable
+快速回测测试 - v1.0.3 Stable
 使用预定义规则进行回测
 """
 
@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.abspath('.'))
 import numpy as np
 
 print("=" * 60)
-print("快速回测测试 - v1.0.2 Stable")
+print("快速回测测试 - v1.0.3 Stable")
 print("=" * 60)
 
 # 生成测试数据

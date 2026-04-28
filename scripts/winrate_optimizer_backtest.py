@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v1.0.2 - 胜率优化回测系统
+杀手锏交易系统 v1.0.3 - 胜率优化回测系统
 目标：通过回测验证并将胜率提升至65%+
 """
 import sys
@@ -30,7 +30,7 @@ class WinRateOptimizerBacktest:
         self.project_root = Path("/workspace/projects/trading-simulator")
         self.strategy = MultiSignalFusionStrategy(config_path)
         self.config = self.strategy.config
-        self.version = "v1.0.2"
+        self.version = "v1.0.3"
 
         # 回测参数
         self.initial_capital = self.config['backtest']['initial_capital']
@@ -338,7 +338,7 @@ class WinRateOptimizerBacktest:
 def main():
     """主函数"""
     print("=" * 70)
-    print("🚀 胜率优化回测系统 - v1.0.2")
+    print("🚀 胜率优化回测系统 - v1.0.3")
     print("=" * 70)
 
     # 创建回测系统
