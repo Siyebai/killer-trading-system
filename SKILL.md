@@ -1,6 +1,6 @@
 ---
 name: trading-simulator
-description: 工业级杀手锏交易系统(V6.3)；当用户需要策略回测、风险模型验证、多策略组合优化、高频交易模拟、交易复盘分析、系统健康评估、自适应阈值优化、风控联动、智能调度时使用
+description: 工业级杀手锏交易系统(v1.0.2)；当用户需要策略回测、风险模型验证、多策略组合优化、高频交易模拟、交易复盘分析、系统健康评估、自适应阈值优化、风控联动、智能调度时使用
 dependency:
   python:
     - numpy==1.24.3
@@ -15,7 +15,7 @@ dependency:
     - python3
 ---
 
-# 杀手锏交易系统 V6.3.2
+# 杀手锏交易系统 v1.0.2
 
 ## 任务目标
 - 本 Skill 用于: 模拟加密货币高频交易全流程,验证策略逻辑、测试风控模型、优化多策略组合权重、执行交易回测与复盘分析、系统工程加固
@@ -24,14 +24,14 @@ dependency:
 
 ## 前置准备
 - 依赖说明: Python 3.8+, numpy, pandas, scipy, statsmodels, scikit-optimize, fastapi, uvicorn, tensorflow(可选)
-- 配置文件: `assets/configs/killer_config_v60.json` (V6.3唯一权威配置)
+- 配置文件: `assets/configs/killer_config_v60.json` (v1.0.2唯一权威配置)
 - 环境变量: `KILLER_LOG_LEVEL`(日志级别,默认INFO) / `KILLER_LOG_FMT`(compact|json,默认compact)
 
 ## 操作步骤
 
 ### 推荐运行模式
 
-**V6.1总控中心版**（推荐,最完整）
+**v1.0.2总控中心版**（推荐,最完整）
 - 完整11层闭环 + 总控中心 + EV过滤 + 订单生命周期
 - 启动: `python scripts/complete_loop_v61.py --action run_continuous --interval 60`
 - 状态查询: 总控中心自动管理全局状态(7种状态: INIT/RUNNING/PAUSED/DEGRADED/SOFT_BREAKER/HARD_BREAKER/STOPPED)
@@ -39,7 +39,7 @@ dependency:
 **独立脚本模式**（灵活调用）
 - 82个独立脚本可单独使用,JSON格式数据交换
 
-### 标准流程(V6.3)
+### 标准流程(v1.0.2)
 
 1. **配置加载与验证** — 使用统一配置管理器加载并验证配置
    - `PYTHONPATH=. python scripts/config_manager.py --config assets/configs/killer_config_v60.json --validate`
@@ -78,7 +78,7 @@ dependency:
 
 ## 使用示例
 
-### 示例1: V6.3完整闭环运行
+### 示例1: v1.0.2完整闭环运行
 - 场景/输入: 启动完整11层闭环交易系统,带总控中心、EV过滤和自适应阈值
 - 预期产出: 自动化交易循环,含健康监控、分级修复、风控联动
 - 关键要点: 确保配置文件通过验证,总控中心状态为RUNNING时才执行交易
@@ -96,22 +96,22 @@ dependency:
 ## 资源索引
 
 ### 脚本
-- **V6.3深度进化**(新增):
+- **v1.0.2深度进化**(新增):
   - [scripts/adaptive_threshold_matrix.py](scripts/adaptive_threshold_matrix.py) — 自适应阈值矩阵: 市场状态分类(趋势/震荡/高波动)+三区独立阈值+反过滤器保护
   - [scripts/repair_upgrade_protocol.py](scripts/repair_upgrade_protocol.py) — 修复升级协议: 4级升级(L1→L4)+修复后必验证+冷却等待+审计日志
   - [scripts/risk_controller_linkage.py](scripts/risk_controller_linkage.py) — 风控联动桥: 预测→行为映射(GARCH/VaR→提议DEGRADED/SOFT_BREAKER)
   - [scripts/strategy_circuit_breaker.py](scripts/strategy_circuit_breaker.py) — 策略级熔断器: 连续亏损→模拟模式→自动恢复/暂停,独立于全局熔断
   - [scripts/edf_scheduler.py](scripts/edf_scheduler.py) — EDF调度器: 最早截止时间优先+延迟感知降频+品种优先级动态调整
-- **V6.2工程加固**:
+- **v1.0.2工程加固**:
   - [scripts/logger_factory.py](scripts/logger_factory.py) — 统一日志工厂,替代print,结构化JSON/紧凑格式,环境变量控制
   - [scripts/config_manager.py](scripts/config_manager.py) — 统一配置管理器,Schema验证,点号路径访问,热加载,变更回调
-- **V6.1总控中心**:
+- **v1.0.2总控中心**:
   - [scripts/global_controller.py](scripts/global_controller.py) — 总控中心: GlobalState(7状态+行为矩阵) + HealthChecker + RepairEngine + Dispatcher + PerformanceOptimizer + BuiltinProbes + BuiltinRepairStrategies
-  - [scripts/complete_loop_v61.py](scripts/complete_loop_v61.py) — V6.1完整闭环,集成总控中心
-- **V6.0智能优化**:
+  - [scripts/complete_loop_v61.py](scripts/complete_loop_v61.py) — v1.0.2完整闭环,集成总控中心
+- **v1.0.2智能优化**:
   - [scripts/ev_filter.py](scripts/ev_filter.py) — 预期价值过滤: EV计算+批量过滤+交易质量分级
   - [scripts/order_lifecycle_manager.py](scripts/order_lifecycle_manager.py) — 订单生命周期: 10种状态+幂等性控制+TTL超时
-  - [scripts/order_execution_engine_v60.py](scripts/order_execution_engine_v60.py) — V6.0执行引擎: 去重+TTL撤单+异步任务管理
+  - [scripts/order_execution_engine_v60.py](scripts/order_execution_engine_v60.py) — v1.0.2执行引擎: 去重+TTL撤单+异步任务管理
 - **11层闭环核心**:
   - [scripts/market_scanner.py](scripts/market_scanner.py) — 第1层: 市场扫描
   - [scripts/comprehensive_analysis.py](scripts/comprehensive_analysis.py) — 第2层: 综合分析
@@ -138,7 +138,7 @@ dependency:
 
 ### 参考
 - [references/optimization_report_v61.md](references/optimization_report_v61.md) — **专业优化建议报告**: 系统健康度评估(6维评分) + 13项优化建议(P0/P1/P2分级) + 分阶段路线图 + 预期收益量化
-- [references/V63_INTEGRATION_GUIDE.md](references/V63_INTEGRATION_GUIDE.md) — **V6.3模块集成指南**: 5个高级模块(自适应阈值/修复协议/风控联动/策略熔断/EDF调度)与主流程集成示例代码
+- [references/v1.0.2_INTEGRATION_GUIDE.md](references/v1.0.2_INTEGRATION_GUIDE.md) — **v1.0.2模块集成指南**: 5个高级模块(自适应阈值/修复协议/风控联动/策略熔断/EDF调度)与主流程集成示例代码
 
 ### 测试
 - [tests/test_global_controller.py](tests/test_global_controller.py) — 状态机测试套件(28用例): 合法/非法转换 + 行为矩阵 + 恢复路径 + 健康检查
@@ -151,7 +151,7 @@ dependency:
 - [references/orderflow_and_regime.md](references/orderflow_and_regime.md) — 订单流分析与市场状态识别
 
 ### 资产
-- [assets/configs/killer_config_v60.json](assets/configs/killer_config_v60.json) — V6.3唯一权威配置文件
+- [assets/configs/killer_config_v60.json](assets/configs/killer_config_v60.json) — v1.0.2唯一权威配置文件
 
 ## 注意事项
 - 所有脚本均为独立命令行工具,通过命令行参数接收输入,JSON格式输出结果
@@ -166,4 +166,4 @@ dependency:
 - **策略级熔断**: 每个策略独立熔断,连续亏损进入模拟模式,模拟盈利自动恢复,不影响其他策略
 - **EDF调度**: 多品种并行时高频品种优先,慢扫描品种自动降频
 - **本系统默认为纯模拟模式,不连接真实交易所,无资金风险**
-- **旧版本模块已归档至 scripts/_archived/ 和 assets/configs/_archived/,仅保留V6.1闭环/V6.0执行引擎/V6.0配置**
+- **旧版本模块已归档至 scripts/_archived/ 和 assets/configs/_archived/,仅保留v1.0.2闭环/v1.0.2执行引擎/v1.0.2配置**

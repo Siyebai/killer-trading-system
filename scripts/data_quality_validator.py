@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("data_quality_validator")
 """
-数据质量验证模块 - V5.0 P0级
+数据质量验证模块 - v1.0.2 P0级
 解决数据质量验证缺失问题，增加时间戳标准化和验证逻辑
 核心策略：数据完整性检查、时间戳标准化、异常值检测
 """
@@ -330,7 +330,7 @@ def main():
         validator = DataQualityValidator(config)
 
         logger.info("=" * 70)
-        logger.info("✅ 数据质量验证 - V5.0 P0级")
+        logger.info("✅ 数据质量验证 - v1.0.2 P0级")
         logger.info("=" * 70)
 
         # 生成示例数据

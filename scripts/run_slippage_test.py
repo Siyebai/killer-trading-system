@@ -149,7 +149,7 @@ def main():
     report = {
         'test_name': 'Dynamic Slippage Model Comparison',
         'timestamp': datetime.now().isoformat(),
-        'version': 'V6.5.1',
+        'version': 'v1.0.2',
         'results': results,
         'analysis': {}
     }

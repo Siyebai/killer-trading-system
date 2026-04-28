@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("capital_pool_hedging")
 """
-资金池隔离与对冲套利模块 - V5.1扩展
+资金池隔离与对冲套利模块 - v1.0.2扩展
 定位：开单和持仓管理环节的风险控制与套利增强
 核心策略：独立资金池、永续/现货对冲、资金费率套利、价差套利
 """
@@ -650,7 +650,7 @@ def main():
         pool_manager = CapitalPoolManager()
 
         logger.info("=" * 70)
-        logger.info("✅ 资金池隔离与对冲套利 - V5.1扩展")
+        logger.info("✅ 资金池隔离与对冲套利 - v1.0.2扩展")
         logger.info("=" * 70)
 
         if args.action == "create_pool":

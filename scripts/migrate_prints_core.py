@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-日志迁移工具 - v1.0.0 Stable (Core Only)
+日志迁移工具 - v1.0.2 Stable (Core Only)
 只迁移核心模块，跳过有语法错误的文件
 """
 

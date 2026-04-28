@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("web_dashboard")
 """
-Web可视化仪表板（FastAPI） - V5.1扩展
+Web可视化仪表板（FastAPI） - v1.0.2扩展
 定位：系统的运维层，提升监控与干预能力
 核心策略：FastAPI后端、实时监控、远程控制、数据可视化
 """
@@ -433,7 +433,7 @@ class TradingDashboard:
             <div class="container">
                 <div class="header">
                     <h1>🚀 杀手锏交易系统仪表板</h1>
-                    <p>V5.1 基础设施优化版</p>
+                    <p>v1.0.2 基础设施优化版</p>
                 </div>
 
                 <div class="grid">
@@ -643,7 +643,7 @@ def main():
 
         elif args.action == "run":
             logger.info("=" * 70)
-            logger.info("✅ Web可视化仪表板 - V5.1扩展")
+            logger.info("✅ Web可视化仪表板 - v1.0.2扩展")
             logger.info("=" * 70)
 
             # 检查依赖

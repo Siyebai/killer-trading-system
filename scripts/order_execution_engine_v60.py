@@ -8,8 +8,8 @@ except ImportError:
     import logging
     logger = logging.getLogger("order_execution_engine_v60")
 """
-开单执行引擎 V6.0（第4层：开单执行）
-V6.0 增强版：集成TTL超时撤单 + 幂等性控制 + 异步任务管理
+开单执行引擎 v1.0.2（第4层：开单执行）
+v1.0.2 增强版：集成TTL超时撤单 + 幂等性控制 + 异步任务管理
 
 核心升级：
 1. clientOrderId 生成（幂等性键）
@@ -194,9 +194,9 @@ class OrderDedupManager:
             del self.dedup_cache[cid]
 
 
-class OrderExecutionEngineV60:
+class OrderExecutionEnginev1.0.2:
     """
-    订单执行引擎 V6.0
+    订单执行引擎 v1.0.2
     
     核心功能：
     1. 幂等性控制（clientOrderId）
@@ -272,7 +272,7 @@ class OrderExecutionEngineV60:
         strategy_id: Optional[str] = None
     ) -> Optional[ExecutionResult]:
         """
-        提交订单（V6.0增强版）
+        提交订单（v1.0.2增强版）
         
         Args:
             symbol: 交易品种
@@ -475,7 +475,7 @@ class OrderExecutionEngineV60:
 
 def main():
     """命令行测试"""
-    parser = argparse.ArgumentParser(description="订单执行引擎 V6.0 测试")
+    parser = argparse.ArgumentParser(description="订单执行引擎 v1.0.2 测试")
     parser.add_argument('--action', choices=['submit', 'cancel', 'stats', 'cleanup'], default='submit')
     parser.add_argument('--symbol', type=str, default='BTCUSDT')
     parser.add_argument('--side', type=str, default='BUY', choices=['BUY', 'SELL'])
@@ -491,7 +491,7 @@ def main():
         'dedup_ttl_seconds': 300,
         'fee_rate': 0.0004
     }
-    engine = OrderExecutionEngineV60(config)
+    engine = OrderExecutionEnginev1.0.2(config)
     
     if args.action == 'submit':
         async def test_submit():

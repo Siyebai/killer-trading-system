@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-完整闭环系统 V6.0（整合EV过滤+订单生命周期管理）
+完整闭环系统 v1.0.2（整合EV过滤+订单生命周期管理）
 11层完整闭环 + 独立风控层 + EV过滤 + 订单生命周期管理
 
 核心优化：
@@ -32,21 +32,21 @@ from scripts.experience_learning import ExperienceLearner
 from scripts.information_aggregator import InfoAggregator
 from scripts.self_optimization_system import SelfOptimizer
 
-# V6.0 新增模块
+# v1.0.2 新增模块
 from scripts.ev_filter import EVFilter, EVFilterInput, TradeDirection
 from scripts.order_lifecycle_manager import OrderLifecycleManager, OrderSide, OrderType
 
 
-class CompleteLoopSystemV60:
+class CompleteLoopSystemv1.0.2:
     """
-    完整闭环系统 V6.0
+    完整闭环系统 v1.0.2
     
     11层完整闭环 + 独立风控层 + EV过滤 + 订单生命周期管理
     """
     
     def __init__(self, config_path: str):
         """
-        初始化V6.0系统
+        初始化v1.0.2系统
         
         Args:
             config_path: 配置文件路径
@@ -55,7 +55,7 @@ class CompleteLoopSystemV60:
         with open(config_path, 'r') as f:
             self.config = json.load(f)
         
-        print(f"🚀 初始化杀手锏交易系统 V6.0")
+        print(f"🚀 初始化杀手锏交易系统 v1.0.2")
         print(f"📄 配置文件: {config_path}")
         print(f"📊 初始资金: ${self.config['initial_cash']:,.2f}")
         
@@ -73,7 +73,7 @@ class CompleteLoopSystemV60:
         # 第3层：智能决策（保留原有决策引擎）
         print(f"  ✅ 第3层: 智能决策层")
         
-        # V6.0新增：EV过滤器
+        # v1.0.2新增：EV过滤器
         if self.config.get('ev_filter', {}).get('enabled', False):
             self.ev_filter = EVFilter(self.config['ev_filter'])
             print(f"  🆕 EV过滤器: 最小期望值={self.config['ev_filter']['min_ev']}")
@@ -81,7 +81,7 @@ class CompleteLoopSystemV60:
             self.ev_filter = None
             print(f"  ⚠️  EV过滤器: 未启用")
         
-        # V6.0新增：订单生命周期管理器
+        # v1.0.2新增：订单生命周期管理器
         if self.config.get('order_lifecycle', {}).get('enabled', False):
             self.order_lifecycle = OrderLifecycleManager(self.config['order_lifecycle'])
             print(f"  🆕 订单生命周期管理: TTL={self.config['order_lifecycle']['default_ttl_ms']}ms")
@@ -129,7 +129,7 @@ class CompleteLoopSystemV60:
             'total_loss': 0.0
         }
         
-        print("\n✅ V6.0系统初始化完成！\n")
+        print("\n✅ v1.0.2系统初始化完成！\n")
     
     async def run_once(self):
         """
@@ -167,7 +167,7 @@ class CompleteLoopSystemV60:
             print(f"  ⚠️  未生成交易决策，跳过本次迭代")
             return
         
-        # V6.0新增：EV过滤
+        # v1.0.2新增：EV过滤
         if self.ev_filter:
             print(f"\n🆕 EV过滤: 检查交易期望值...")
             filtered_decisions = []
@@ -322,7 +322,7 @@ class CompleteLoopSystemV60:
 
 def main():
     """主函数"""
-    parser = argparse.ArgumentParser(description="杀手锏交易系统 V6.0 - 完整闭环系统")
+    parser = argparse.ArgumentParser(description="杀手锏交易系统 v1.0.2 - 完整闭环系统")
     parser.add_argument(
         '--action',
         choices=['run_once', 'run_continuous', 'summary'],
@@ -350,7 +350,7 @@ def main():
         sys.exit(1)
     
     # 创建系统
-    system = CompleteLoopSystemV60(args.config)
+    system = CompleteLoopSystemv1.0.2(args.config)
     
     # 执行
     if args.action == 'run_once':

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-健康度检查脚本 - v1.0.0 Stable
+健康度检查脚本 - v1.0.2 Stable
 快速诊断系统健康状态
 """
 
@@ -75,7 +75,7 @@ class HealthChecker:
             total_subscribers = sum(len(v) if isinstance(v, (list, dict)) else 1 for v in subscribers_dict.values())
             logger.info(f"✓ 事件订阅者: {total_subscribers} 个")
 
-            # v1.0.0 Stable修复: 订阅者数量为0是正常的（初始化状态）
+            # v1.0.2 Stable修复: 订阅者数量为0是正常的（初始化状态）
             # 只要有事件总线实例就算通过
             if total_subscribers == 0:
                 self.warnings.append("事件总线当前无订阅者（初始化状态）")
@@ -91,7 +91,7 @@ class HealthChecker:
     def check_config_access(self) -> bool:
         """检查配置访问（简化版）"""
         try:
-            # v1.0.0 Stable: 仅检查配置文件存在性
+            # v1.0.2 Stable: 仅检查配置文件存在性
             config_files = [
                 'config.yaml',
                 'config.json',
@@ -118,7 +118,7 @@ class HealthChecker:
     def check_residual_logs(self) -> bool:
         """检查日志残余"""
         try:
-            # v1.0.0 Stable: 简化检查，仅统计主要文件
+            # v1.0.2 Stable: 简化检查，仅统计主要文件
             import subprocess
 
             result = subprocess.run(
@@ -157,7 +157,7 @@ class HealthChecker:
     def run_all_checks(self) -> Dict:
         """运行所有检查"""
         logger.info("=" * 50)
-        logger.info("杀手锏交易系统 v1.0.0 Stable - 健康度检查")
+        logger.info("杀手锏交易系统 v1.0.2 Stable - 健康度检查")
         logger.info("=" * 50)
 
         checks = [

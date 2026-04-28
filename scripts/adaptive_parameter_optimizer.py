@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("adaptive_parameter_optimizer")
 """
-自适应参数优化模块（贝叶斯优化） - V5.1扩展
+自适应参数优化模块（贝叶斯优化） - v1.0.2扩展
 定位：复盘总结和优化提升的自动化版本
 核心策略：贝叶斯优化、超参数自动调整、目标函数夏普比率、热加载配置
 """
@@ -486,7 +486,7 @@ def main():
         optimizer = ParameterOptimizer()
 
         logger.info("=" * 70)
-        logger.info("✅ 自适应参数优化（贝叶斯优化）- V5.1扩展")
+        logger.info("✅ 自适应参数优化（贝叶斯优化）- v1.0.2扩展")
         logger.info("=" * 70)
 
         if args.action == "optimize":

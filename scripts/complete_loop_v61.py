@@ -8,12 +8,12 @@ except ImportError:
     import logging
     logger = logging.getLogger("complete_loop_v61")
 """
-杀手锏交易系统 V6.1 - 完整闭环系统（含总控中心）
-整合V6.0 EV过滤 + 订单生命周期管理 + V6.1 总控中心
+杀手锏交易系统 v1.0.2 - 完整闭环系统（含总控中心）
+整合v1.0.2 EV过滤 + 订单生命周期管理 + v1.0.2 总控中心
 
 核心升级：
-1. V6.0: EV过滤 + 订单生命周期管理
-2. V6.1: 总控中心（全局状态/健康检查/修复引擎/任务调度/性能优化）
+1. v1.0.2: EV过滤 + 订单生命周期管理
+2. v1.0.2: 总控中心（全局状态/健康检查/修复引擎/任务调度/性能优化）
 3. 零侵入集成：各层执行前查询全局状态
 4. 风控熔断联动
 5. 多symbol并行调度
@@ -39,9 +39,9 @@ from scripts.global_controller import (
 )
 
 
-class CompleteLoopV61:
+class CompleteLoopv1.0.2:
     """
-    完整闭环系统 V6.1
+    完整闭环系统 v1.0.2
     
     11层闭环 + 风控层 + EV过滤 + 订单生命周期 + 总控中心
     每层执行前查询全局状态，实现零侵入集成
@@ -56,11 +56,11 @@ class CompleteLoopV61:
         self.global_state = GlobalState()
         
         logger.info(f"\n{'='*70}")
-        logger.info(f"  杀手锏交易系统 V6.1 - 总控中心版")
+        logger.info(f"  杀手锏交易系统 v1.0.2 - 总控中心版")
         logger.info(f"{'='*70}")
-        logger.info(f"  [V5.9] 11层闭环 + 13风控规则 + 分级熔断")
-        logger.info(f"  [V6.0] EV过滤 + 订单生命周期管理")
-        logger.info(f"  [V6.1] 全局状态管理 + 健康检查 + 修复引擎 + 任务调度 + 性能优化")
+        logger.info(f"  [v1.0.2] 11层闭环 + 13风控规则 + 分级熔断")
+        logger.info(f"  [v1.0.2] EV过滤 + 订单生命周期管理")
+        logger.info(f"  [v1.0.2] 全局状态管理 + 健康检查 + 修复引擎 + 任务调度 + 性能优化")
         logger.info(f"  零侵入集成 | 风控熔断联动 | 多symbol并行 | 在线/离线优化")
         logger.info(f"{'='*70}\n")
     
@@ -88,7 +88,7 @@ class CompleteLoopV61:
             return
         # seven_layer_system.decide()
         
-        # ---- V6.0: EV过滤 ----
+        # ---- v1.0.2: EV过滤 ----
         if not self.global_state.is_trading_allowed():
             return
         # ev_filter.calculate_ev()
@@ -149,11 +149,11 @@ class CompleteLoopV61:
         )
         
         # 启动调度器（多symbol并行）
-        logger.info(f"\n[V6.1] 启动多symbol并行调度: {symbols}")
+        logger.info(f"\n[v1.0.2] 启动多symbol并行调度: {symbols}")
         try:
             await self.controller.dispatcher.start(self.run_once)
         except KeyboardInterrupt:
-            logger.error(f"\n[V6.1] 收到停止信号")
+            logger.error(f"\n[v1.0.2] 收到停止信号")
         finally:
             await self.controller.stop()
     
@@ -184,7 +184,7 @@ from scripts.global_controller import Dispatcher
 
 
 def main():
-    parser = argparse.ArgumentParser(description="杀手锏交易系统 V6.1")
+    parser = argparse.ArgumentParser(description="杀手锏交易系统 v1.0.2")
     parser.add_argument('--action', choices=['run_once', 'run_continuous', 'status'], default='run_once')
     parser.add_argument('--interval', type=int, default=60)
     parser.add_argument('--config', type=str, default='assets/configs/killer_config_v60.json')
@@ -194,7 +194,7 @@ def main():
         logger.info(f"配置文件不存在: {args.config}")
         sys.exit(1)
     
-    system = CompleteLoopV61(args.config)
+    system = CompleteLoopv1.0.2(args.config)
     
     if args.action == 'run_once':
         asyncio.run(system.run_once())

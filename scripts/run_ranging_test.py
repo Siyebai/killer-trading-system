@@ -126,7 +126,7 @@ def main():
     report = {
         'test_name': 'Ranging Market Parameter Optimization',
         'timestamp': datetime.now().isoformat(),
-        'version': 'V6.5.1',
+        'version': 'v1.0.2',
         'results': results,
         'analysis': {
             'trades_improvement': trades_improvement,

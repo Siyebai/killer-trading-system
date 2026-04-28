@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-端到端测试 - v1.0.0 Stable
+端到端测试 - v1.0.2 Stable
 测试完整流程：数据加载→策略进化→回测
 """
 
@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.abspath('.'))
 
 print("=" * 60)
-print("端到端测试 - v1.0.0 Stable")
+print("端到端测试 - v1.0.2 Stable")
 print("=" * 60)
 
 # 步骤1: 数据加载

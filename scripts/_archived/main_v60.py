@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 V6.0 - 统一入口
+杀手锏交易系统 v1.0.2 - 统一入口
 支持三种运行模式：
-  - normal: 原有单Agent模式（V5.9兼容）
+  - normal: 原有单Agent模式（v1.0.2兼容）
   - closed_loop: 10层完整闭环模式
-  - v60: V6.0智能优化版（EV过滤 + 订单生命周期管理）
+  - v60: v1.0.2智能优化版（EV过滤 + 订单生命周期管理）
 
 使用方法：
     python main_v60.py --mode v60
@@ -19,14 +19,14 @@ from pathlib import Path
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent))
 
-from scripts.complete_loop_system_v60 import CompleteLoopSystemV60
+from scripts.complete_loop_system_v60 import CompleteLoopSystemv1.0.2
 from scripts.complete_loop_with_risk import CompleteLoopWithRisk
 from scripts.complete_loop_system import CompleteLoopSystem
 
 
 def run_v60_mode(args):
     """
-    运行V6.0模式（推荐）
+    运行v1.0.2模式（推荐）
     
     核心特性：
     - EV过滤：预期价值过滤，提升胜率至63-65%
@@ -35,7 +35,7 @@ def run_v60_mode(args):
     - 11层完整闭环 + 风控层
     """
     print("\n" + "="*60)
-    print("🚀 杀手锏交易系统 V6.0 - 智能优化版")
+    print("🚀 杀手锏交易系统 v1.0.2 - 智能优化版")
     print("="*60)
     print("\n✨ 核心特性：")
     print("  • EV过滤：预期价值过滤，只执行正期望交易")
@@ -57,8 +57,8 @@ def run_v60_mode(args):
         print(f"💡 提示：请确保配置文件存在或使用 --config 指定路径")
         sys.exit(1)
     
-    # 创建V6.0系统
-    system = CompleteLoopSystemV60(config_path)
+    # 创建v1.0.2系统
+    system = CompleteLoopSystemv1.0.2(config_path)
     
     # 执行
     if args.action == 'run_once':
@@ -86,9 +86,9 @@ def run_closed_loop_mode(args):
 
 
 def run_normal_mode(args):
-    """运行原有单Agent模式（V5.9兼容）"""
+    """运行原有单Agent模式（v1.0.2兼容）"""
     print("\n" + "="*60)
-    print("🚀 杀手锏交易系统 - 单Agent模式（V5.9兼容）")
+    print("🚀 杀手锏交易系统 - 单Agent模式（v1.0.2兼容）")
     print("="*60 + "\n")
     
     config_path = args.config or "assets/configs/killer_config_risk_v59.json"
@@ -103,20 +103,20 @@ def run_normal_mode(args):
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(
-        description="杀手锏交易系统 V6.0 - 统一入口",
+        description="杀手锏交易系统 v1.0.2 - 统一入口",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例：
-  # 运行V6.0智能优化版（推荐）
+  # 运行v1.0.2智能优化版（推荐）
   python main_v60.py --mode v60 --action run_once
   
-  # 连续运行V6.0（间隔60秒）
+  # 连续运行v1.0.2（间隔60秒）
   python main_v60.py --mode v60 --action run_continuous --interval 60
   
   # 运行10层闭环模式
   python main_v60.py --mode closed_loop --action run_once
   
-  # 运行原有模式（V5.9兼容）
+  # 运行原有模式（v1.0.2兼容）
   python main_v60.py --mode normal --action run_once
   
   # 使用自定义配置

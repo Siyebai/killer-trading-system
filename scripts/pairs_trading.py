@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("pairs_trading")
 """
-统计套利模块（Pairs Trading） - V5.1扩展
+统计套利模块（Pairs Trading） - v1.0.2扩展
 定位：扫描发现和智能决策的增强
 核心策略：协整检验、价差Z-score、均值回归、LinUCB权重优化
 """
@@ -694,7 +694,7 @@ def main():
         strategy = PairsTradingStrategy(config)
 
         logger.info("=" * 70)
-        logger.info("✅ 统计套利（Pairs Trading）- V5.1扩展")
+        logger.info("✅ 统计套利（Pairs Trading）- v1.0.2扩展")
         logger.info("=" * 70)
 
         if args.action == "test_cointegration":

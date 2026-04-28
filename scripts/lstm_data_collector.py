@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("lstm_data_collector")
 """
-LSTM训练数据收集器 - V5.0 P1级
+LSTM训练数据收集器 - v1.0.2 P1级
 解决LSTM动态止盈模块需要训练数据的问题
 核心策略：高频K线数据收集、增量训练机制、数据存储
 """
@@ -423,7 +423,7 @@ def main():
         collector = LSTMDataCollector()
 
         logger.info("=" * 70)
-        logger.info("✅ LSTM训练数据收集器 - V5.0 P1级")
+        logger.info("✅ LSTM训练数据收集器 - v1.0.2 P1级")
         logger.info("=" * 70)
 
         if args.action == "collect":

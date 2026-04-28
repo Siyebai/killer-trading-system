@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("log_migration")
 """
-自动化日志迁移脚本 — V6.3.1
+自动化日志迁移脚本 — v1.0.2
 扫描所有Python文件,将print(...)替换为logger.xxx(...)
 智能推断日志级别: except块→error, 警告词→warning, 调试词→debug, 其他→info
 """

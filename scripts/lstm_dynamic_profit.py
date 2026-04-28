@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("lstm_dynamic_profit")
 """
-LSTM动态止盈预测模块 - V5.0
+LSTM动态止盈预测模块 - v1.0.2
 使用深度学习预测未来N根K线的价格区间，动态调整分批止盈点位
 核心策略：LSTM时序预测 + 动态止盈调整
 """
@@ -368,7 +368,7 @@ def main():
         predictor = LSTMDynamicProfitPredictor(config)
 
         logger.info("=" * 70)
-        logger.info("🧠 LSTM动态止盈预测 - V5.0")
+        logger.info("🧠 LSTM动态止盈预测 - v1.0.2")
         logger.info("=" * 70)
 
         status = "已启用" if TF_AVAILABLE else "已禁用（使用统计方法）"

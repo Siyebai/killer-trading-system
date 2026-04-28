@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("market_regime_optimizer")
 """
-市场状态识别优化模块 - V5.0 P1级
+市场状态识别优化模块 - v1.0.2 P1级
 解决市场状态识别滞后问题
 核心策略：概率性状态预测、置信度动态调整、微观结构指标提前预警
 """
@@ -52,7 +52,7 @@ class RegimeStateTracker:
         初始化状态跟踪器
 
         Args:
-            min_stability_periods: 最小稳定周期数（V5.0优化：从3降至1）
+            min_stability_periods: 最小稳定周期数（v1.0.2优化：从3降至1）
         """
         self.min_stability_periods = min_stability_periods
         self.history = []
@@ -86,13 +86,13 @@ class MarketRegimeOptimizer:
         # 提前预警阈值
         self.early_warning_threshold = self.config.get('early_warning_threshold', 0.75)
 
-        # 微观结构权重（V5.0新增）
+        # 微观结构权重（v1.0.2新增）
         self.orderbook_slope_weight = self.config.get('orderbook_slope_weight', 0.3)
         self.volume_delta_weight = self.config.get('volume_delta_weight', 0.2)
 
         # 状态跟踪器
         self.state_tracker = RegimeStateTracker(
-            min_stability_periods=self.config.get('min_stability_periods', 1)  # V5.0优化：从3降至1
+            min_stability_periods=self.config.get('min_stability_periods', 1)  # v1.0.2优化：从3降至1
         )
 
     def predict_regime(
@@ -101,7 +101,7 @@ class MarketRegimeOptimizer:
         historical_context: Optional[List[Dict]] = None
     ) -> RegimePrediction:
         """
-        概率性预测市场状态（V5.0核心优化）
+        概率性预测市场状态（v1.0.2核心优化）
 
         Args:
             market_state: 当前市场状态
@@ -117,7 +117,7 @@ class MarketRegimeOptimizer:
         volatility = market_state.get('volatility', 0)
         price_change = market_state.get('price_change', 0)
 
-        # 微观结构特征（V5.0新增）
+        # 微观结构特征（v1.0.2新增）
         orderbook_slope = market_state.get('orderbook_slope', 0)
         volume_delta = market_state.get('volume_delta', 0)
 
@@ -224,7 +224,7 @@ class MarketRegimeOptimizer:
         if price_change > 0:
             prob += min(0.1, price_change / 0.05)
 
-        # 微观结构指标（V5.0新增）
+        # 微观结构指标（v1.0.2新增）
         if orderbook_slope > 0:  # 买盘强
             prob += 0.05 * self.orderbook_slope_weight
         if volume_delta > 0:  # 主动买盘
@@ -527,7 +527,7 @@ def main():
         optimizer = MarketRegimeOptimizer(config)
 
         logger.info("=" * 70)
-        logger.info("✅ 市场状态识别优化 - V5.0 P1级")
+        logger.info("✅ 市场状态识别优化 - v1.0.2 P1级")
         logger.info("=" * 70)
 
         # 解析市场状态

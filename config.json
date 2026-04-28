@@ -1,8 +1,82 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "1.0.0-stable",
+    "version": "v1.0.2",
     "environment": "production",
     "log_level": "INFO"
+  },
+  "trading": {
+    "symbol": "BTCUSDT",
+    "timeframe": "1h",
+    "leverage": 3,
+    "position_size": 0.02,
+    "min_order_size": 0.001,
+    "max_position_size": 0.5
+  },
+  "risk_management": {
+    "stop_loss": 2.0,
+    "take_profit": 3.5,
+    "trailing_stop": 1.5,
+    "trailing_activation": 1.0,
+    "max_position_size_percent": 30,
+    "max_daily_loss": 5.0,
+    "max_consecutive_losses": 5,
+    "max_drawdown": 15.0,
+    "risk_per_trade": 1.0
+  },
+  "strategy": {
+    "default_strategy": "multi_signal_fusion",
+    "signal_confirmation": true,
+    "min_signal_strength": 0.7,
+    "max_correlation": 0.8,
+    "use_market_regime": true,
+    "adaptive_weights": true
+  },
+  "market_regime": {
+    "trend_threshold": 0.3,
+    "ranging_threshold": 0.15,
+    "breakout_threshold": 0.02,
+    "lookback_period": 20
+  },
+  "execution": {
+    "order_type": "MARKET",
+    "slippage_tolerance": 0.05,
+    "max_slippage": 0.1,
+    "execution_timeout": 5000
+  },
+  "indicators": {
+    "ema": {
+      "fast": 9,
+      "medium": 21,
+      "slow": 55
+    },
+    "rsi": {
+      "period": 14,
+      "oversold": 30,
+      "overbought": 70
+    },
+    "macd": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    "atr": {
+      "period": 14,
+      "multiplier": 1.5
+    }
+  },
+  "advanced_features": {
+    "machine_learning_signals": true,
+    "order_flow_analysis": true,
+    "volume_profile": true,
+    "support_resistance": true,
+    "multi_timeframe": true
+  },
+  "backtest": {
+    "initial_capital": 10000,
+    "commission": 0.001,
+    "slippage": 0.0005,
+    "start_date": "2024-01-01",
+    "end_date": "2024-12-31"
   }
 }

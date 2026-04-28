@@ -50,7 +50,7 @@ class MarketTick:
 
 
 class DatabaseManager:
-    """数据库管理器（V5.4优化：连接池管理）"""
+    """数据库管理器（v1.0.2优化：连接池管理）"""
 
     def __init__(self, db_path: str = "./data/trading.db"):
         """
@@ -63,7 +63,7 @@ class DatabaseManager:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
 
-        # V5.4优化：使用长期连接，避免频繁创建/关闭
+        # v1.0.2优化：使用长期连接，避免频繁创建/关闭
         self._connection = None
         self._is_initialized = False
 
@@ -71,7 +71,7 @@ class DatabaseManager:
         self._init_database()
 
     def _get_connection(self) -> sqlite3.Connection:
-        """获取数据库连接（V5.4优化：复用连接 + V5.5修复：线程安全检查）"""
+        """获取数据库连接（v1.0.2优化：复用连接 + v1.0.2修复：线程安全检查）"""
         # BUG #7修复：检查连接是否已关闭
         if self._connection is not None:
             try:
@@ -87,7 +87,7 @@ class DatabaseManager:
         return self._connection
 
     def close_connection(self):
-        """关闭数据库连接（V5.4新增）"""
+        """关闭数据库连接（v1.0.2新增）"""
         if self._connection is not None:
             try:
                 self._connection.close()
@@ -157,7 +157,7 @@ class DatabaseManager:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ticks_symbol ON market_ticks(symbol)")
 
             conn.commit()
-            # V5.4优化：不关闭连接，复用连接
+            # v1.0.2优化：不关闭连接，复用连接
 
     def save_trade(self, trade: TradeRecord) -> bool:
         """保存交易记录"""
@@ -177,7 +177,7 @@ class DatabaseManager:
                 ))
 
                 conn.commit()
-                # V5.4优化：不关闭连接，复用连接
+                # v1.0.2优化：不关闭连接，复用连接
                 return True
         except Exception as e:
             logger.error(f"[Database] 保存交易记录失败: {e}")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-订单生命周期管理模块 — V6.3 加固版
+订单生命周期管理模块 — v1.0.2 加固版
 管理订单从创建到终结的完整状态机,确保幂等性/防重/超时撤单
 
-V6.3 加固:
+v1.0.2 加固:
 - 全量 print→logging 迁移
 - 状态转换校验: 非法转换被拒绝并记录
 - fill_order/cancel_order/reject_order 统计bug修复(先检查旧状态再更新)
@@ -582,7 +582,7 @@ class OrderLifecycleManager:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="订单生命周期管理 V6.3")
+    parser = argparse.ArgumentParser(description="订单生命周期管理 v1.0.2")
     parser.add_argument("--symbol", default="BTCUSDT")
     parser.add_argument("--side", default="BUY", choices=["BUY", "SELL"])
     parser.add_argument("--quantity", type=float, default=0.001)

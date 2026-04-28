@@ -8,7 +8,7 @@ except ImportError:
     import logging
     logger = logging.getLogger("linucb_cold_start")
 """
-LinUCB冷启动优化模块 - V5.0 P1级
+LinUCB冷启动优化模块 - v1.0.2 P1级
 解决LinUCB优化器冷启动问题
 核心策略：历史回测数据预训练、小样本学习模式、多臂老虎机探索-利用平衡
 """
@@ -381,7 +381,7 @@ def main():
         optimizer = LinUCBColdStart(strategies)
 
         logger.info("=" * 70)
-        logger.info("✅ LinUCB冷启动优化 - V5.0 P1级")
+        logger.info("✅ LinUCB冷启动优化 - v1.0.2 P1级")
         logger.info("=" * 70)
 
         if args.action == "pretrain":
