@@ -1,0 +1,8 @@
+{
+  "system": {
+    "name": "杀手锏交易系统",
+    "version": "1.0.0-stable",
+    "environment": "production",
+    "log_level": "INFO"
+  }
+}
