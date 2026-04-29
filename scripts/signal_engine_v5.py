@@ -1,15 +1,27 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 - 信号引擎 v5.0
-在 v4.0 均值回归基础上叠加三层增强：
-  1. 资金费率信号加权
-  2. 4H 级别趋势确认（多周期共振）
-  3. 动态止盈：持仓盈利超 1×ATR 后，止损移到保本，止盈延伸到 4.5×ATR
+杀手锏 信号引擎 v5.0
+策略融合三层：
+  Layer 1 — 均值回归（升级版 v4.0→v5.0）
+    • BB 2.5σ + RSI OB70/OS30 + 量比过滤
+  Layer 2 — 趋势动量（新增）
+    • EMA20/50 + MACD柱状图交叉 + RSI中性区确认
+  Layer 3 — 资金费率套利（新增）
+    • funding_rate > +0.05% → 做空（多头付费，市场过热）
+    • funding_rate < -0.05% → 做多（空头付费，市场过恐）
+  Layer 4 — 订单流不平衡 OFI（新增）
+    • taker_buy_vol / total_vol > 0.65 → 多头强势
+    • taker_buy_vol / total_vol < 0.35 → 空头强势
+
+信号融合规则：
+  • 任意2层同向 → 入场，conf按命中层数计算
+  • 资金费率层单独也可触发（高置信度）
+  • OFI与均值回归/动量叠加时 conf+0.1
 """
 import numpy as np
-import json
-from pathlib import Path
 
+
+# ─── 基础指标 ────────────────────────────────────────────────
 
 def ema_val(arr, period):
     k = 2 / (period + 1)
@@ -21,220 +33,229 @@ def ema_val(arr, period):
 
 def calc_rsi(closes, period=14):
     if len(closes) < period + 1:
-        return 50
-    diffs  = [closes[j] - closes[j-1] for j in range(-period, 0)]
-    gains  = [max(d, 0) for d in diffs]
-    losses = [abs(min(d, 0)) for d in diffs]
-    ag, al = np.mean(gains), np.mean(losses)
-    return float(100 - (100 / (1 + ag/al))) if al > 0 else 50
+        return 50.0
+    diffs  = np.diff(closes[-period - 1:])
+    gains  = np.maximum(diffs, 0)
+    losses = np.abs(np.minimum(diffs, 0))
+    ag, al = gains.mean(), losses.mean()
+    if al == 0:
+        return 100.0 if ag > 0 else 50.0
+    return float(100 - 100 / (1 + ag / al))
 
 
-def calc_bollinger(closes, period=20):
+def calc_bollinger(closes, period=20, n_std=2.5):
     if len(closes) < period:
-        mid = float(closes[-1]); std = mid * 0.01
-        return mid, mid + 2*std, mid - 2*std, std
-    w   = np.array(closes[-period:], dtype=float)
-    mid = float(np.mean(w))
-    std = float(np.std(w)) or mid * 0.005
-    return mid, mid + 2*std, mid - 2*std, std
+        mid = float(np.mean(closes))
+        return mid, mid, mid, 0.0
+    window = np.array(closes[-period:])
+    mid    = float(window.mean())
+    std    = float(window.std())
+    return mid, mid + n_std * std, mid - n_std * std, std
 
 
 def calc_atr(highs, lows, closes, period=14):
-    trs = [max(highs[j] - lows[j],
-               abs(highs[j] - closes[j-1]),
-               abs(lows[j]  - closes[j-1]))
-           for j in range(-period, 0)]
-    return float(np.mean(trs)) or float(closes[-1]) * 0.01
-
-
-def pct_change_n(closes, n):
-    if len(closes) <= n:
+    if len(closes) < period + 1:
         return 0.0
-    return (closes[-1] - closes[-n-1]) / closes[-n-1] * 100
+    trs = np.maximum(
+        np.array(highs[-period:]) - np.array(lows[-period:]),
+        np.maximum(
+            np.abs(np.array(highs[-period:]) - np.array(closes[-period - 1:-1])),
+            np.abs(np.array(lows[-period:])  - np.array(closes[-period - 1:-1]))
+        )
+    )
+    return float(trs.mean())
 
 
-def get_funding_bias():
-    """读取资金费率文件，返回 (bias_long, bias_short) 偏置"""
-    try:
-        fp = Path(__file__).parent.parent / "data" / "BTCUSDT_funding_rate.json"
-        with open(fp) as f:
-            data = json.load(f)
-        rate = float(data[-1]['fundingRate'])
-        if rate > 0.001:       # 多头付空头：做空有利
-            return 0.0, 0.08
-        elif rate < -0.0005:   # 空头付多头：做多有利
-            return 0.08, 0.0
-        elif rate > 0.0005:
-            return 0.0, 0.04
-        elif rate < -0.0002:
-            return 0.04, 0.0
-    except Exception:
-        pass
-    return 0.0, 0.0
+def calc_macd(closes, fast=12, slow=26, signal=9):
+    """返回 (macd_hist当前, macd_hist前一根)"""
+    if len(closes) < slow + signal:
+        return 0.0, 0.0
+    c = np.array(closes, dtype=float)
+    def ema_np(arr, p):
+        k = 2 / (p + 1); e = np.empty(len(arr)); e[0] = arr[0]
+        for i in range(1, len(arr)): e[i] = arr[i] * k + e[i - 1] * (1 - k)
+        return e
+    macd_line = ema_np(c, fast) - ema_np(c, slow)
+    sig_line  = ema_np(macd_line, signal)
+    hist      = macd_line - sig_line
+    return float(hist[-1]), float(hist[-2]) if len(hist) >= 2 else 0.0
 
 
-def build_4h_closes(closes_1h):
-    """把 1H K线聚合成 4H，返回最近 60 根"""
-    n = len(closes_1h)
-    result = []
-    for i in range(3, n, 4):
-        result.append(closes_1h[i])
-    return result[-60:]
-
-
-def get_4h_trend(closes_1h):
+def calc_ofi(taker_buy_vols, total_vols, window=5):
     """
-    基于 1H 数据合成 4H 趋势
-    返回: 'BULL' / 'BEAR' / 'NEUTRAL'
+    订单流不平衡：taker主动买占比
+    > 0.65 多头强势 / < 0.35 空头强势
     """
-    c4h = build_4h_closes(closes_1h)
-    if len(c4h) < 52:
-        return 'NEUTRAL'
-    ema21_4h  = ema_val(c4h[-45:], 21)
-    ema50_4h  = ema_val(c4h,       50)
-    cur4h     = c4h[-1]
-    if cur4h > ema21_4h > ema50_4h:
-        return 'BULL'
-    elif cur4h < ema21_4h < ema50_4h:
-        return 'BEAR'
-    return 'NEUTRAL'
+    if len(taker_buy_vols) < window or len(total_vols) < window:
+        return 0.5
+    tb = np.array(taker_buy_vols[-window:])
+    tv = np.array(total_vols[-window:])
+    total = tv.sum()
+    if total == 0:
+        return 0.5
+    return float(tb.sum() / total)
 
 
-def generate_signal_v5(closes, highs, lows, opens, volumes, min_bars=50):
+# ─── 主信号生成 ──────────────────────────────────────────────
+
+def generate_signal_v5(
+    closes, highs, lows, opens, volumes,
+    taker_buy_vols=None,
+    funding_rate: float = 0.0,
+    min_bars: int = 60
+):
     """
-    信号引擎 v5.0
-    = v4.0 均值回归 + 资金费率 + 4H趋势 + 动态止盈标记
+    Parameters
+    ----------
+    closes/highs/lows/opens/volumes : list[float]
+        1H 或 15m K线数据（至少min_bars根）
+    taker_buy_vols : list[float] | None
+        主动买入成交量（来自K线第10列），None时跳过OFI层
+    funding_rate : float
+        当前资金费率（如 0.0005 = 0.05%），0时跳过资金费率层
+    min_bars : int
+        最少数据根数
+
+    Returns
+    -------
+    dict  包含 direction/confidence/reason/layers 等字段
     """
     n = len(closes)
     if n < min_bars:
-        return {'direction': 'NEUTRAL', 'confidence': 0,
-                'reason': 'insufficient_data', 'market': 'N/A',
-                'trailing': False}
+        return _neutral("insufficient_data")
 
     cur  = float(closes[-1])
     prev = float(closes[-2]) if n >= 2 else cur
 
-    # 指标
-    rsi14 = calc_rsi(closes, 14)
-    bb_mid, bb_upper, bb_lower, bb_std = calc_bollinger(closes)
-    atr   = calc_atr(highs, lows, closes)
-    bb_range = (bb_upper - bb_lower) or 1e-9
-    bb_pos   = (cur - bb_lower) / bb_range
-    ret3     = pct_change_n(closes, 3)
-    ret6     = pct_change_n(closes, 6)
-    vol_ma   = float(np.mean(volumes[-20:])) if n >= 20 else float(volumes[-1])
+    # ── 指标计算 ────────────────────────────────────────────
+    rsi14    = calc_rsi(closes, 14)
+    bb_mid, bb_up, bb_lo, bb_std = calc_bollinger(closes, 20, 2.5)
+    atr      = calc_atr(highs, lows, closes, 14)
+    if atr == 0:
+        return _neutral("zero_atr")
+
+    bb_range = bb_up - bb_lo
+    if bb_range < 1e-9:
+        return _neutral("bb_flat_market")
+    bb_pos   = (cur - bb_lo) / bb_range
+
+    macd_h, macd_h_prev = calc_macd(closes)
+
+    # EMA 方向
+    ema20 = ema_val(closes[-min(20, n):], min(20, n))
+    ema50 = ema_val(closes[-min(50, n):], min(50, n))
+    bull  = ema20 > ema50
+    bear  = ema20 < ema50
+
+    # 量比（过滤放量噪音）
+    vol_ma    = float(np.mean(volumes[-20:])) if n >= 20 else float(volumes[-1])
     vol_ratio = float(volumes[-1]) / vol_ma if vol_ma > 0 else 1.0
+    vol_ok    = vol_ratio < 2.0   # 放量超2倍跳过
 
-    # EMA200 趋势
-    ep = min(200, n - 1)
-    ema200 = ema_val(closes[max(0, n - ep*2):], ep)
-    ratio  = cur / ema200
-    market = 'BULL' if ratio >= 1.005 else ('BEAR' if ratio <= 0.995 else 'NEUTRAL_MKT')
+    # OFI
+    ofi = 0.5
+    if taker_buy_vols is not None and len(taker_buy_vols) >= 5:
+        ofi = calc_ofi(taker_buy_vols, volumes, window=5)
 
-    # 4H 趋势
-    trend4h = get_4h_trend(list(closes))
+    # ── Layer 1：均值回归 ─────────────────────────────────
+    L1_long  = rsi14 < 30 and bb_pos <= 0.10 and vol_ok
+    L1_short = rsi14 > 70 and bb_pos >= 0.90 and vol_ok
+    # 宽松触发（单一条件但更极端）
+    if not L1_long  and rsi14 < 25: L1_long  = vol_ok
+    if not L1_short and rsi14 > 75: L1_short = vol_ok
 
-    # 资金费率偏置
-    bias_long, bias_short = get_funding_bias()
+    # ── Layer 2：趋势动量 ─────────────────────────────────
+    # MACD柱状图上穿零轴 + EMA方向
+    L2_long  = bull and macd_h > 0 and macd_h_prev <= 0 and rsi14 < 65
+    L2_short = bear and macd_h < 0 and macd_h_prev >= 0 and rsi14 > 35
+    # 顺势RSI超卖/超买（趋势方向+极端RSI）
+    if not L2_long  and bull and rsi14 < 35: L2_long  = True
+    if not L2_short and bear and rsi14 > 65: L2_short = True
 
-    # ── 信号 A：RSI 极端 ───────────────────────
-    sig_A_long = sig_A_short = False
-    A_str = 0.0
-    if rsi14 <= 28:
-        sig_A_long = True;  A_str = (30 - rsi14) / 30
-    elif rsi14 >= 72:
-        sig_A_short = True; A_str = (rsi14 - 70) / 30
+    # ── Layer 3：资金费率套利 ────────────────────────────
+    FR_THRESH = 0.0003   # 0.03%，中等阈值
+    FR_STRONG = 0.0007   # 0.07%，强烈信号
+    L3_long  = funding_rate < -FR_THRESH   # 空头付费→市场超恐→做多
+    L3_short = funding_rate >  FR_THRESH   # 多头付费→市场过热→做空
+    L3_strong_long  = funding_rate < -FR_STRONG
+    L3_strong_short = funding_rate >  FR_STRONG
 
-    # ── 信号 B：布林带极端 ──────────────────────
-    sig_B_long = sig_B_short = False
-    B_str = 0.0
-    if bb_pos <= 0.08:
-        sig_B_long  = True; B_str = min((bb_lower - cur) / bb_std + 1, 1.5) / 1.5
-    elif bb_pos >= 0.92:
-        sig_B_short = True; B_str = min((cur - bb_upper) / bb_std + 1, 1.5) / 1.5
-    B_str = max(B_str, 0.0)
+    # ── Layer 4：OFI ────────────────────────────────────
+    L4_long  = ofi > 0.65
+    L4_short = ofi < 0.35
 
-    # ── 信号 C：短期超涨超跌 ────────────────────
-    sig_C_long = sig_C_short = False
-    C_str = 0.0
-    atr_pct = atr / cur * 100
-    if ret3 < -atr_pct * 1.1:
-        sig_C_long  = True; C_str = min(abs(ret3) / (atr_pct * 2), 1.0)
-    elif ret3 > atr_pct * 1.1:
-        sig_C_short = True; C_str = min(ret3 / (atr_pct * 2), 1.0)
-    if not sig_C_long  and ret6 < -atr_pct * 1.6:
-        sig_C_long  = True; C_str = max(C_str, min(abs(ret6)/(atr_pct*2.5), 0.8))
-    if not sig_C_short and ret6 > atr_pct * 1.6:
-        sig_C_short = True; C_str = max(C_str, min(ret6/(atr_pct*2.5), 0.8))
+    # ── 融合决策 ─────────────────────────────────────────
+    long_layers  = [L1_long,  L2_long,  L3_long,  L4_long]
+    short_layers = [L1_short, L2_short, L3_short, L4_short]
+    long_hits    = sum(long_layers)
+    short_hits   = sum(short_layers)
 
-    long_hits  = sum([sig_A_long,  sig_B_long,  sig_C_long])
-    short_hits = sum([sig_A_short, sig_B_short, sig_C_short])
+    long_names  = ["均值回归","趋势动量","资金费率","OFI"]
+    short_names = ["均值回归","趋势动量","资金费率","OFI"]
+    long_reason  = "+".join(n for n, f in zip(long_names,  long_layers)  if f)
+    short_reason = "+".join(n for n, f in zip(short_names, short_layers) if f)
 
-    def avg_str(bits, strs):
-        vals = [s for s, b in zip(strs, bits) if b]
-        return float(np.mean(vals)) if vals else 0.0
+    # 置信度计算
+    def calc_conf(hits, strong_fr, rsi_extreme, vol_r):
+        base  = 0.40 + hits * 0.12
+        base += 0.08 if strong_fr   else 0
+        base += 0.05 if rsi_extreme else 0
+        base += 0.03 if vol_r < 0.8 else 0   # 缩量加分
+        return min(round(base, 3), 0.92)
 
-    long_str  = avg_str([sig_A_long,  sig_B_long,  sig_C_long],  [A_str, B_str, C_str])
-    short_str = avg_str([sig_A_short, sig_B_short, sig_C_short], [A_str, B_str, C_str])
+    # 触发条件：
+    # a) 任意2层同向
+    # b) 资金费率极强单独触发
+    # c) L1+L4（均值回归+OFI） 组合
 
-    # ── 趋势过滤调整票数 ────────────────────────
-    # EMA200 过滤
-    if market == 'BEAR' and ratio < 0.97:
-        long_hits = max(0, long_hits - 1)
-    if market == 'BULL' and ratio > 1.03:
-        short_hits = max(0, short_hits - 1)
+    direction = None
+    conf      = 0.0
+    reason    = ""
 
-    # 4H 趋势同向加一票，逆向减一票
-    if trend4h == 'BULL':
-        long_hits  = min(long_hits  + 1, 3)
-        short_hits = max(short_hits - 1, 0)
-    elif trend4h == 'BEAR':
-        short_hits = min(short_hits + 1, 3)
-        long_hits  = max(long_hits  - 1, 0)
+    if long_hits >= 2:
+        direction = "LONG"
+        conf      = calc_conf(long_hits, L3_strong_long, rsi14 < 28, vol_ratio)
+        reason    = long_reason
+    elif short_hits >= 2:
+        direction = "SHORT"
+        conf      = calc_conf(short_hits, L3_strong_short, rsi14 > 72, vol_ratio)
+        reason    = short_reason
+    elif L3_strong_long:
+        direction = "LONG"
+        conf      = 0.72
+        reason    = "资金费率极强做多"
+    elif L3_strong_short:
+        direction = "SHORT"
+        conf      = 0.72
+        reason    = "资金费率极强做空"
 
-    # 成交量 boost
-    vol_boost = 0.05 if vol_ratio >= 1.5 else 0.0
+    if direction is None:
+        layers_info = (f"L1:{int(L1_long)}/{int(L1_short)} "
+                       f"L2:{int(L2_long)}/{int(L2_short)} "
+                       f"L3:{int(L3_long)}/{int(L3_short)} "
+                       f"L4:{int(L4_long)}/{int(L4_short)}")
+        return _neutral(f"no_trigger({layers_info})")
 
-    def make_sig(direction, hits, strength, reasons, bias):
-        if hits < 2:
-            return None
-        conf = min(0.45 + hits * 0.14 + strength * 0.18 + vol_boost + bias, 0.95)
-        # 标记是否需要动态追踪止盈（三信号同触发）
-        trailing = hits == 3
-        return {
-            'direction': direction,
-            'confidence': conf,
-            'reason': '|'.join(reasons),
-            'market': market,
-            'trend4h': trend4h,
-            'hits': hits,
-            'strength': strength,
-            'rsi': rsi14,
-            'bb_pos': bb_pos,
-            'vol_ratio': vol_ratio,
-            'trailing': trailing   # ← 动态止盈标记
+    return {
+        "direction":  direction,
+        "confidence": conf,
+        "reason":     reason,
+        "layers": {
+            "L1_mean_rev": L1_long if direction == "LONG" else L1_short,
+            "L2_momentum": L2_long if direction == "LONG" else L2_short,
+            "L3_funding":  L3_long if direction == "LONG" else L3_short,
+            "L4_ofi":      L4_long if direction == "LONG" else L4_short,
+        },
+        "indicators": {
+            "rsi": round(rsi14, 2),
+            "bb_pos": round(bb_pos, 3),
+            "ofi": round(ofi, 3),
+            "funding_rate": funding_rate,
+            "vol_ratio": round(vol_ratio, 2),
+            "macd_hist": round(macd_h, 6),
         }
-
-    long_reasons  = []
-    short_reasons = []
-    if sig_A_long:  long_reasons.append(f'RSI超卖({rsi14:.0f})')
-    if sig_B_long:  long_reasons.append(f'BB下轨({bb_pos:.2f})')
-    if sig_C_long:  long_reasons.append(f'超跌({ret3:.1f}%)')
-    if sig_A_short: short_reasons.append(f'RSI超买({rsi14:.0f})')
-    if sig_B_short: short_reasons.append(f'BB上轨({bb_pos:.2f})')
-    if sig_C_short: short_reasons.append(f'超涨({ret3:.1f}%)')
-    if trend4h != 'NEUTRAL':
-        (long_reasons if trend4h=='BULL' else short_reasons).append(f'4H{trend4h}')
-
-    ls = make_sig('LONG',  long_hits,  long_str,  long_reasons,  bias_long)
-    ss = make_sig('SHORT', short_hits, short_str, short_reasons, bias_short)
-
-    if ls and ss:
-        return ls if ls['confidence'] >= ss['confidence'] else ss
-    return ls or ss or {
-        'direction': 'NEUTRAL', 'confidence': 0,
-        'reason': f'no_sig(A:{int(sig_A_long)}/{int(sig_A_short)} '
-                  f'B:{int(sig_B_long)}/{int(sig_B_short)} '
-                  f'C:{int(sig_C_long)}/{int(sig_C_short)})',
-        'market': market, 'trailing': False
     }
+
+
+def _neutral(reason):
+    return {"direction": "NEUTRAL", "confidence": 0.0, "reason": reason, "layers": {}, "indicators": {}}
