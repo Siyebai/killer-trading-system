@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v5.2",
+    "version": "v5.1",
     "environment": "production",
     "log_level": "INFO"
   },
@@ -59,7 +59,7 @@
   },
   "market_state_machine": {
     "enabled": true,
-    "adx_trend_threshold": 24.33589354992338,
+    "adx_trend_threshold": 35.0,
     "adx_strong_threshold": 40,
     "vol_extreme_threshold": 0.05,
     "bb_extreme_threshold": 2.0,
@@ -73,10 +73,10 @@
     "use_market_regime": true,
     "adaptive_weights": true,
     "v5_optimal_params": {
-      "rsi_oversold": 27.2939024316399,
+      "rsi_oversold": 20.0,
       "rsi_overbought": 60.0,
-      "bb_std": 1.600219808213605,
-      "bb_period": 17,
+      "bb_std": 1.5,
+      "bb_period": 15,
       "sl_atr_multiplier": 2.5,
       "tp_atr_multiplier": 5.0
     }

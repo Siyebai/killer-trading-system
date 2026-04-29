@@ -78,7 +78,7 @@ class BayesianOptimizer:
         """生成回测数据"""
         if seed is not None:
             np.random.seed(seed)
-        dates = pd.date_range('2024-01-01', periods=n_bars, freq='1H')
+        dates = pd.date_range('2024-01-01', periods=n_bars, freq='1h')
         noise = np.random.randn(n_bars) * 0.005
         trend = np.sin(np.arange(n_bars) / 200) * 0.002
         returns = noise + trend

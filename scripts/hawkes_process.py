@@ -254,7 +254,7 @@ def main():
     # 生成模拟数据
     np.random.seed(42)
     n = args.bars
-    dates = pd.date_range('2024-01-01', periods=n, freq='1H')
+    dates = pd.date_range('2024-01-01', periods=n, freq='1h')
     returns = np.random.randn(n) * 0.01
     close = 100000 * np.exp(np.cumsum(returns))
     volume = np.random.randint(100, 5000, n) * 1e6

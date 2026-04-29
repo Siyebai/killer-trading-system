@@ -50,7 +50,7 @@ class MAMLMetaLearner:
         env_types = ['bull', 'bear', 'ranging', 'crash', 'recovery']
         env = env_types[task_id % len(env_types)]
 
-        dates = pd.date_range('2024-01-01', periods=n_bars, freq='1H')
+        dates = pd.date_range('2024-01-01', periods=n_bars, freq='1h')
         noise = np.random.randn(n_bars) * 0.005
 
         if env == 'bull':
