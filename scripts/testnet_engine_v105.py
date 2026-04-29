@@ -1,10 +1,17 @@
 #!/usr/bin/env python3
 """
-杀手锏 Testnet 执行引擎 v1.0.5
+杀手锏 Testnet 执行引擎 v1.0.5-fixed
 策略: v4.0 均值回归  品种: BTCUSDT + SOLUSDT  周期: 1H
 模式: Testnet 纸交易（不动真实资金）
+
+修复记录:
+  [FIX-1] 进程单例锁 —— 防止多实例并发
+  [FIX-2] 优雅退出信号处理 —— SIGTERM/SIGINT干净退出
+  [FIX-3] 等待期可中断 —— 每10秒检查退出标志
+  [FIX-4] 日志强制落盘
+  [FIX-5] testnet日志文件原子写
 """
-import json, time, hmac, hashlib, urllib.request, urllib.parse, sys
+import json, time, hmac, hashlib, urllib.request, urllib.parse, sys, os, signal
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -29,6 +36,47 @@ LEVERAGE  = 5         # 5倍杠杆
 LOG_DIR   = Path(__file__).parent.parent / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 CST       = timezone(timedelta(hours=8))
+PID_FILE  = LOG_DIR / "testnet_engine.pid"   # [FIX-1]
+LOG_FILE  = LOG_DIR / "testnet_engine.log"   # [FIX-4]
+
+# ── 优雅退出 [FIX-2] ──
+_exit_flag = False
+def _handle_exit(signum, frame):
+    global _exit_flag
+    _exit_flag = True
+    _log(f"收到信号{signum}，准备退出...")
+signal.signal(signal.SIGTERM, _handle_exit)
+signal.signal(signal.SIGINT,  _handle_exit)
+
+# ── 日志 [FIX-4] ──
+def _log(msg: str):
+    ts = datetime.now(tz=CST).strftime("%Y-%m-%d %H:%M:%S CST")
+    line = f"[{ts}] {msg}"
+    print(line, flush=True)
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line + "\n"); f.flush(); os.fsync(f.fileno())
+    except Exception:
+        pass
+
+# ── 单例锁 [FIX-1] ──
+def acquire_lock() -> bool:
+    if PID_FILE.exists():
+        try:
+            pid = int(PID_FILE.read_text().strip())
+            os.kill(pid, 0)
+            return False
+        except (ProcessLookupError, ValueError):
+            PID_FILE.unlink(missing_ok=True)
+    PID_FILE.write_text(str(os.getpid()))
+    return True
+
+def release_lock():
+    try:
+        if PID_FILE.exists() and int(PID_FILE.read_text().strip()) == os.getpid():
+            PID_FILE.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def now_cst():
@@ -214,44 +262,67 @@ def run_once():
         else:
             print(f"  ❌ 下单失败: {entry_r}")
 
-    # 保存日志
+    # 保存日志 [FIX-5] 原子写
     if log_entries:
         log_file = LOG_DIR / f"testnet_{datetime.now(tz=CST).strftime('%Y%m%d')}.json"
         existing = []
         if log_file.exists():
-            with open(log_file) as f:
-                existing = json.load(f)
+            try:
+                with open(log_file) as f:
+                    existing = json.load(f)
+            except Exception:
+                existing = []
         existing.extend(log_entries)
-        with open(log_file, "w") as f:
+        tmp = log_file.with_suffix(".json.tmp")
+        with open(tmp, "w") as f:
             json.dump(existing, f, indent=2)
-        print(f"\n日志已保存: {log_file.name}")
+            f.flush(); os.fsync(f.fileno())
+        tmp.replace(log_file)
+        _log(f"日志已保存: {log_file.name}")
 
 
 def run_monitor():
     """72小时持续监控主循环（每小时执行一次）"""
-    print(f"杀手锏 Testnet 执行引擎 v1.0.5 启动")
-    print(f"策略: v4.0均值回归  品种: {SYMBOLS}  周期: {INTERVAL}")
-    print(f"风险: {RISK_PCT*100:.0f}%/笔  SL: {SL_ATR}ATR  TP: {TP_ATR}ATR  杠杆: {LEVERAGE}x")
-    print(f"启动时间: {now_cst()}")
+    # [FIX-1] 单例检查
+    if not acquire_lock():
+        pid = PID_FILE.read_text().strip()
+        print(f"❌ 已有实例在运行 (PID {pid})，退出。如需强制重启请先 kill {pid}", flush=True)
+        sys.exit(1)
 
-    start_time = time.time()
-    hours_72 = 72 * 3600
+    try:
+        _log(f"杀手锏 Testnet 执行引擎 v1.0.5-fixed 启动  PID={os.getpid()}")
+        _log(f"策略: v4.0均值回归  品种: {SYMBOLS}  周期: {INTERVAL}")
+        _log(f"风险: {RISK_PCT*100:.0f}%/笔  SL: {SL_ATR}ATR  TP: {TP_ATR}ATR  杠杆: {LEVERAGE}x")
 
-    while time.time() - start_time < hours_72:
-        try:
-            run_once()
-        except Exception as e:
-            print(f"[{now_cst()}] ❌ 执行异常: {e}")
+        start_time = time.time()
+        hours_72   = 72 * 3600
 
-        elapsed_h = (time.time() - start_time) / 3600
-        print(f"\n已运行: {elapsed_h:.1f}h / 72h  下次扫描: 1小时后")
-        time.sleep(3600)
+        while not _exit_flag and (time.time() - start_time) < hours_72:
+            try:
+                run_once()
+            except Exception as e:
+                _log(f"❌ 执行异常: {e}")
 
-    print(f"\n✅ 72小时纸交易完成  结束时间: {now_cst()}")
+            elapsed_h = (time.time() - start_time) / 3600
+            _log(f"已运行: {elapsed_h:.1f}h / 72h  下次扫描: 1小时后")
+
+            # [FIX-3] 可中断等待
+            next_scan = time.time() + 3600
+            while not _exit_flag and time.time() < next_scan:
+                if (time.time() - start_time) >= hours_72:
+                    break
+                time.sleep(10)
+
+        if _exit_flag:
+            _log("⛔ 收到退出信号，提前终止")
+        else:
+            _log("✅ 72小时纸交易完成")
+    finally:
+        release_lock()
+        _log("PID锁已释放")
 
 
 if __name__ == "__main__":
-    import sys
     if "--once" in sys.argv:
         run_once()
     else:

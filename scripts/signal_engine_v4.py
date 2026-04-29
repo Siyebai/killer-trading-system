@@ -26,14 +26,23 @@ def ema_val(arr, period):
 
 
 def calc_rsi(closes, period=14):
+    # [FIX] 数组长度不足时返回中性值50，防止IndexError
+    if len(closes) < period + 1:
+        return 50.0
     diffs  = [closes[j]-closes[j-1] for j in range(-period, 0)]
     gains  = [max(d, 0) for d in diffs]
     losses = [abs(min(d, 0)) for d in diffs]
     ag, al = np.mean(gains), np.mean(losses)
-    return 100 - (100/(1+ag/al)) if al > 0 else 50
+    if al == 0:
+        return 100.0 if ag > 0 else 50.0   # [FIX] 全涨→100，横盘→50，不返回div-zero
+    return 100 - (100 / (1 + ag / al))
 
 
 def calc_bollinger(closes, period=20):
+    # [FIX] 数组长度不足时退化处理
+    if len(closes) < period:
+        mid = float(np.mean(closes))
+        return mid, mid, mid, 0.0
     window = np.array(closes[-period:])
     mid    = float(np.mean(window))
     std    = float(np.std(window))
@@ -80,7 +89,10 @@ def generate_signal_v4(closes, highs, lows, opens, volumes, min_bars=50):
     atr   = calc_atr(highs, lows, closes)
 
     # 价格在布林带的位置 (0=下轨, 1=上轨)
-    bb_range = bb_upper - bb_lower or 1e-9
+    bb_range = bb_upper - bb_lower
+    if bb_range < 1e-9:   # [FIX] 零方差保护，横盘市场直接返回NEUTRAL
+        return {'direction': 'NEUTRAL', 'confidence': 0,
+                'reason': 'bb_range_zero(flat_market)', 'market': 'NEUTRAL_MKT'}
     bb_pos   = (cur - bb_lower) / bb_range
 
     # 短期动量
