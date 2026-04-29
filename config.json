@@ -1,13 +1,13 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v1.0.4",
+    "version": "v5.0",
     "environment": "production",
     "log_level": "INFO"
   },
   "trading": {
-    "symbol": "BTCUSDT",
-    "timeframe": "1h",
+    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
+    "timeframes": ["1H", "15m"],
     "leverage": 3,
     "position_size": 0.02,
     "min_order_size": 0.001,
@@ -28,7 +28,8 @@
     "atr_multiplier_tp": 3.0,
     "kelly_fraction": 0.5,
     "max_single_loss": 2.5,
-    "max_position_size": 25
+    "max_total_exposure": 15.0,
+    "max_single_position": 3.0
   },
   "trend_filter": {
     "enabled": true,
@@ -41,17 +42,61 @@
   "risk_circuit_breaker": {
     "enabled": true,
     "max_consecutive_losses": 5,
-    "daily_loss_limit": 3.0,
+    "daily_loss_limit": 5.0,
     "block_duration_hours": 24,
     "auto_reset_daily": true
   },
+  "market_state_machine": {
+    "enabled": true,
+    "adx_trend_threshold": 25,
+    "adx_strong_threshold": 40,
+    "vol_extreme_threshold": 0.05,
+    "bb_extreme_threshold": 2.5,
+    "ema_slope_threshold": 0.001
+  },
   "strategy": {
-    "default_strategy": "multi_signal_fusion",
+    "default_strategy": "multi_strategy_fusion_v5",
     "signal_confirmation": true,
-    "min_signal_strength": 0.7,
+    "min_signal_strength": 0.5,
     "max_correlation": 0.8,
     "use_market_regime": true,
-    "adaptive_weights": true
+    "adaptive_weights": true,
+    "v5_optimal_params": {
+      "rsi_oversold": 30,
+      "rsi_overbought": 70,
+      "bb_std": 2.5,
+      "bb_period": 20,
+      "sl_atr_multiplier": 1.5,
+      "tp_atr_multiplier": 3.0
+    }
+  },
+  "funding_rate": {
+    "enabled": true,
+    "high_rate_threshold": 0.001,
+    "extreme_high_threshold": 0.003,
+    "low_rate_threshold": -0.0005,
+    "extreme_low_threshold": -0.001,
+    "normal_range": 0.0003
+  },
+  "cross_symbol": {
+    "enabled": true,
+    "correlations": {
+      "BTCUSDT_ETHUSDT": 0.85,
+      "BTCUSDT_SOLUSDT": 0.75,
+      "BTCUSDT_BNBUSDT": 0.70,
+      "ETHUSDT_SOLUSDT": 0.80
+    },
+    "lag_minutes": {
+      "BTCUSDT_ETHUSDT": 2,
+      "BTCUSDT_SOLUSDT": 5,
+      "BTCUSDT_BNBUSDT": 3
+    }
+  },
+  "symbol_weights": {
+    "BTCUSDT": 0.4,
+    "ETHUSDT": 0.25,
+    "SOLUSDT": 0.2,
+    "BNBUSDT": 0.15
   },
   "market_regime": {
     "trend_threshold": 0.3,
@@ -91,7 +136,9 @@
     "order_flow_analysis": true,
     "volume_profile": true,
     "support_resistance": true,
-    "multi_timeframe": true
+    "multi_timeframe": true,
+    "funding_rate_arbitrage": true,
+    "cross_symbol_correlation": true
   },
   "backtest": {
     "initial_capital": 10000,
