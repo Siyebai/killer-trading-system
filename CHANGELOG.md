@@ -1,0 +1,23 @@
+# Changelog
+
+## v1.0.4 (2026-04-29 北京时间)
+### 新增
+- `scripts/paper_trading_v104.py`：多币种实时纸交易引擎
+  - 支持 BTCUSDT / ETHUSDT / SOLUSDT / BNBUSDT
+  - 支持 1m / 5m / 1h 三个时间框架
+  - 接入真实 Binance 合约行情（binance-cli）
+  - 本地模拟执行，不下真实订单（方案C）
+  - 北京时间(UTC+8)时间戳
+  - 自动保存扫描报告到 logs/
+- `scripts/signal_engine_v9.py`：15m多因子引擎（已验证）
+- `scripts/signal_engine_v10.py`：5m多因子引擎（已验证）
+
+### 扫描结果（2026-04-29 09:25 CST）
+- 最优：BNBUSDT 1h  WR54.5% RR1.41 EV+0.303%
+- 第二：SOLUSDT 1h  WR44.4% RR2.26 EV+0.388%
+- 结论：1m全部失败（WR<40%），1h表现最稳定
+
+## v1.0.3 (2026-04-28)
+- v4.0均值回归策略通过三段验证
+- 均WR50.1% / EV+0.153% / 回撤0.18%（BTCUSDT 1H合约）
+- 基准：sl=2.0ATR / tp=3.5ATR / max_hold=24根
