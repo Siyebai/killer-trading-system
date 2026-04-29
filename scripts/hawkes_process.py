@@ -226,17 +226,30 @@ class MarketImpactModel:
         buy_intensity = self.buy_hawkes.intensity(current_t, buy_events)
         sell_intensity = self.sell_hawkes.intensity(current_t, sell_events)
 
-        # 信号确认逻辑
+        # 信号确认逻辑（分级确认）
+        ratio = buy_intensity / (sell_intensity + 1e-10)
+        sell_ratio = sell_intensity / (buy_intensity + 1e-10)
+        
         if signal_type == 'LONG':
-            if buy_intensity > sell_intensity * 1.5:
-                return {'confirmed': True, 'confidence': min(buy_intensity / (sell_intensity + 1e-10) / 3, 1.0),
+            if ratio > 1.5:
+                confidence = min(ratio / 3, 1.0)
+                return {'confirmed': True, 'confidence': float(confidence),
+                        'buy_intensity': float(buy_intensity), 'sell_intensity': float(sell_intensity)}
+            elif ratio > 1.1:
+                confidence = min((ratio - 1.0) / 2, 0.5)
+                return {'confirmed': True, 'confidence': float(confidence),
                         'buy_intensity': float(buy_intensity), 'sell_intensity': float(sell_intensity)}
             else:
                 return {'confirmed': False, 'confidence': 0.0,
                         'buy_intensity': float(buy_intensity), 'sell_intensity': float(sell_intensity)}
         else:  # SHORT
-            if sell_intensity > buy_intensity * 1.5:
-                return {'confirmed': True, 'confidence': min(sell_intensity / (buy_intensity + 1e-10) / 3, 1.0),
+            if sell_ratio > 1.5:
+                confidence = min(sell_ratio / 3, 1.0)
+                return {'confirmed': True, 'confidence': float(confidence),
+                        'buy_intensity': float(buy_intensity), 'sell_intensity': float(sell_intensity)}
+            elif sell_ratio > 1.1:
+                confidence = min((sell_ratio - 1.0) / 2, 0.5)
+                return {'confirmed': True, 'confidence': float(confidence),
                         'buy_intensity': float(buy_intensity), 'sell_intensity': float(sell_intensity)}
             else:
                 return {'confirmed': False, 'confidence': 0.0,

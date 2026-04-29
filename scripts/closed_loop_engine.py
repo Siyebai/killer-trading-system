@@ -58,43 +58,69 @@ class SignalConfirmationPipeline:
         self.config = default_config
         self.confirmation_log = []
     
-    def confirm_signal(self, signal_type: int, data: Dict) -> Dict:
+    def confirm_signal(self, signal_type: int, data: Dict, strategy_type: str = 'mean_reversion') -> Dict:
         """
-        多级信号确认（评分制）
+        多级信号确认（评分制，区分策略类型）
         
-        Level 1: 多维评分确认 (权重40%)
+        Level 1: 策略感知评分 (权重40%)
+          - 均值回归: RSI+BB为主
+          - 趋势跟踪: MACD+ADX为主
         Level 2: Hurst指数确认 (权重30%)
         Level 3: 量比+动量确认 (权重30%)
         """
         confirmations = 0
         scores = {}
         
-        # Level 1: 多维评分
         rsi = data.get('rsi', 50)
         bb_position = data.get('bb_position', 0.5)
         adx = data.get('adx', 20)
         macd_signal = data.get('macd_signal', 0)
         
-        if signal_type == 1:  # LONG
-            score = 0
-            if rsi < 40: score += 0.3
-            elif rsi < 50: score += 0.15
-            if bb_position < 0.3: score += 0.3
-            elif bb_position < 0.5: score += 0.15
-            if adx > 20: score += 0.2
-            if macd_signal == 1: score += 0.2
-            scores['multidim'] = score
-            if score >= 0.3: confirmations += 1
-        elif signal_type == -1:  # SHORT
-            score = 0
-            if rsi > 60: score += 0.3
-            elif rsi > 50: score += 0.15
-            if bb_position > 0.7: score += 0.3
-            elif bb_position > 0.5: score += 0.15
-            if adx > 20: score += 0.2
-            if macd_signal == -1: score += 0.2
-            scores['multidim'] = score
-            if score >= 0.3: confirmations += 1
+        # Level 1: 策略感知评分
+        if strategy_type in ('trend_following', 'trend'):
+            # 趋势跟踪: MACD+ADX为主, RSI/BB为辅
+            if signal_type == 1:  # LONG
+                score = 0
+                if macd_signal == 1: score += 0.35
+                if adx > 20: score += 0.30
+                elif adx > 15: score += 0.15
+                if rsi < 55: score += 0.15
+                if bb_position < 0.6: score += 0.10
+                if data.get('plus_di', 0) > data.get('minus_di', 0): score += 0.10
+                scores['multidim'] = score
+                if score >= 0.3: confirmations += 1
+            elif signal_type == -1:  # SHORT
+                score = 0
+                if macd_signal == -1: score += 0.35
+                if adx > 20: score += 0.30
+                elif adx > 15: score += 0.15
+                if rsi > 45: score += 0.15
+                if bb_position > 0.4: score += 0.10
+                if data.get('minus_di', 0) > data.get('plus_di', 0): score += 0.10
+                scores['multidim'] = score
+                if score >= 0.3: confirmations += 1
+        else:
+            # 均值回归: RSI+BB为主, MACD/ADX为辅
+            if signal_type == 1:  # LONG
+                score = 0
+                if rsi < 40: score += 0.3
+                elif rsi < 50: score += 0.15
+                if bb_position < 0.3: score += 0.3
+                elif bb_position < 0.5: score += 0.15
+                if adx > 20: score += 0.2
+                if macd_signal == 1: score += 0.2
+                scores['multidim'] = score
+                if score >= 0.3: confirmations += 1
+            elif signal_type == -1:  # SHORT
+                score = 0
+                if rsi > 60: score += 0.3
+                elif rsi > 50: score += 0.15
+                if bb_position > 0.7: score += 0.3
+                elif bb_position > 0.5: score += 0.15
+                if adx > 20: score += 0.2
+                if macd_signal == -1: score += 0.2
+                scores['multidim'] = score
+                if score >= 0.3: confirmations += 1
         
         # Level 2: Hurst指数确认
         hurst = data.get('hurst', 0.5)
@@ -162,6 +188,7 @@ class AdaptiveStrategyWeights:
         self.weights = np.array([1.0 / n_strategies] * n_strategies)
         self.min_weight = 0.10  # 单策略最低权重10%
         self.max_weight = 0.60  # 单策略最高权重60%
+        self.min_trades_for_eval = 10  # 最少交易数才参与权重调整
     
     def update_performance(self, strategy_name: str, trade_result: Dict):
         """更新策略表现追踪"""
@@ -184,6 +211,7 @@ class AdaptiveStrategyWeights:
         """
         根据近期表现调整策略权重
         使用softmax归一化确保权重和为1
+        修复: 无交易策略不参与权重竞争
         """
         # 计算每个策略的综合得分
         scores = np.array([
@@ -192,16 +220,37 @@ class AdaptiveStrategyWeights:
             for name in self.strategy_names
         ])
         
-        # 加上当前权重作为惯性项（避免权重剧烈波动）
-        scores = scores * 0.7 + self.weights * 0.3
+        # 关键修复: 无交易策略(n_trades==0)设为极低得分，不参与权重竞争
+        active_mask = np.array([self.performance[name]['n_trades'] >= self.min_trades_for_eval 
+                               for name in self.strategy_names])
+        if not active_mask.any():
+            return self.weights  # 没有任何策略有足够交易，保持初始权重
+        
+        # 无交易策略得分设为0.01（极低），确保权重向有交易策略倾斜
+        for i in range(len(scores)):
+            if not active_mask[i]:
+                scores[i] = 0.01
+        
+        # 胜率差异放大：表现好的策略得分加倍
+        max_wr = max(self.performance[n]['win_rate'] for n in self.strategy_names if self.performance[n]['n_trades'] > 0)
+        for i, name in enumerate(self.strategy_names):
+            if not active_mask[i]:
+                continue
+            wr_diff = max_wr - self.performance[name]['win_rate']
+            if wr_diff > 0.10:  # 胜率差异超过10%时惩罚
+                scores[i] *= 0.5
+        
+        # 加上当前权重作为惯性项
+        scores = scores * 0.85 + self.weights * 0.15
         
         # Softmax归一化
-        exp_scores = np.exp(scores - np.max(scores))
+        temperature = 0.3  # 更小温度=更激进的权重分配
+        exp_scores = np.exp(scores / temperature - np.max(scores / temperature))
         new_weights = exp_scores / exp_scores.sum()
         
         # 应用权重约束
         new_weights = np.clip(new_weights, self.min_weight, self.max_weight)
-        new_weights = new_weights / new_weights.sum()  # 重新归一化
+        new_weights = new_weights / new_weights.sum()
         
         self.weights = new_weights
         return new_weights
@@ -228,7 +277,6 @@ class FeedbackLoop:
         }
         self.trade_history = []
         self.optimization_log = []
-        self.adaptive_weights = AdaptiveStrategyWeights()
         self.baseline_performance = None
     
     def record_trade(self, trade: Dict):
@@ -241,6 +289,11 @@ class FeedbackLoop:
         # 更新策略表现
         strategy = trade.get('strategy', 'mean_reversion')
         self.adaptive_weights.update_performance(strategy, trade)
+        
+        # 每10笔交易调整一次权重（更频繁的反馈）
+        if len(self.trade_history) % 10 == 0 and len(self.trade_history) >= 20:
+            self.adaptive_weights.adjust_weights()
+            self.optimization_log.append({'type': 'weight_adjustment', 'timestamp': datetime.now().isoformat()})
         
         # 检测漂移
         if len(self.trade_history) >= self.config['min_trades_for_eval']:
@@ -319,7 +372,9 @@ class ClosedLoopEngine:
             'mode': 'hybrid',
             'rsi_period': 14, 'rsi_oversold': 30, 'rsi_overbought': 70,
             'bb_period': 20, 'bb_std': 2.5,
-            'atr_period': 14, 'atr_sl': 2.0, 'atr_tp': 4.0,
+            'atr_period': 14, 'atr_sl': 1.5, 'atr_tp': 2.5,
+            'trailing_stop_atr': 1.0,
+            'trailing_step_atr': 0.5,
             'max_consecutive_losses': 8,
             'daily_loss_limit': 0.05,
             'circuit_breaker_hours': 6,
@@ -335,7 +390,7 @@ class ClosedLoopEngine:
         # 初始化子系统
         signal_config = {
             'min_confirmations': self.config.get('min_confirmations', 1),
-            'threshold': 0.35
+            'threshold': 0.50
         }
         self.signal_pipeline = SignalConfirmationPipeline(signal_config)
         self.adaptive_weights = AdaptiveStrategyWeights(decay=self.config.get('weight_decay', 0.95))
@@ -345,6 +400,8 @@ class ClosedLoopEngine:
             'drift_threshold': self.config.get('drift_threshold', 0.10),
             'min_trades_for_eval': self.config.get('min_trades_for_eval', 20)
         })
+        # 共享adaptive_weights实例，确保FeedbackLoop的调整反映到主引擎
+        self.feedback_loop.adaptive_weights = self.adaptive_weights
         
         # 状态
         self.consecutive_losses = 0
@@ -533,13 +590,23 @@ class ClosedLoopEngine:
             fr_short_score * w.get('funding_rate', 0.34)
         )
         
-        # 信号阈值
-        signal_threshold = 0.15
+        # 信号阈值（动态调整：趋势市提高阈值过滤噪音，均值回归市降低阈值增加信号）
+        if hurst > 0.55:  # 趋势市场，信号少但准
+            signal_threshold = 0.30
+        elif hurst < 0.45:  # 均值回归市场，多信号
+            signal_threshold = 0.20
+        else:
+            signal_threshold = 0.25
         
         if long_signal > short_signal and long_signal >= signal_threshold:
+            # 信号方向优势检查：至少比反向信号强20%
+            if short_signal > 0 and long_signal / (short_signal + 1e-10) < 1.2:
+                return 0, 'none'
             strategy = 'mean_reversion' if mr_long_score > tf_long_score else 'trend_following'
             return 1, strategy
         elif short_signal > long_signal and short_signal >= signal_threshold:
+            if long_signal > 0 and short_signal / (long_signal + 1e-10) < 1.2:
+                return 0, 'none'
             strategy = 'mean_reversion' if mr_short_score > tf_short_score else 'trend_following'
             return -1, strategy
         
@@ -597,6 +664,12 @@ class ClosedLoopEngine:
                     if self.config.get('breakeven_at_bb_mid') and row['close'] >= row['bb_mid'] and pos['sl'] < pos['entry']:
                         pos['sl'] = pos['entry']
                     
+                    # 追踪止损: 浮盈达到trailing_stop_atr时，移止损到入场价+trailing_step_atr
+                    if row['close'] >= pos['entry'] + self.config.get('trailing_stop_atr', 1.0) * atr:
+                        new_sl = pos['entry'] + self.config.get('trailing_step_atr', 0.5) * atr
+                        if new_sl > pos['sl']:
+                            pos['sl'] = new_sl
+                    
                     if row['low'] <= pos['sl']:
                         pnl = -abs(pos['sl'] - pos['entry']) / pos['entry']
                         closed = True
@@ -606,6 +679,12 @@ class ClosedLoopEngine:
                 elif pos['type'] == 'SHORT':
                     if self.config.get('breakeven_at_bb_mid') and row['close'] <= row['bb_mid'] and pos['sl'] > pos['entry']:
                         pos['sl'] = pos['entry']
+                    
+                    # 追踪止损: 浮盈达到trailing_stop_atr时，移止损到入场价-trailing_step_atr
+                    if row['close'] <= pos['entry'] - self.config.get('trailing_stop_atr', 1.0) * atr:
+                        new_sl = pos['entry'] - self.config.get('trailing_step_atr', 0.5) * atr
+                        if new_sl < pos['sl']:
+                            pos['sl'] = new_sl
                     
                     if row['high'] >= pos['sl']:
                         pnl = -abs(pos['sl'] - pos['entry']) / pos['entry']
@@ -666,7 +745,7 @@ class ClosedLoopEngine:
                         'momentum': row.get('momentum', 0)
                     }
                     
-                    confirmation = self.signal_pipeline.confirm_signal(raw_signal, signal_data)
+                    confirmation = self.signal_pipeline.confirm_signal(raw_signal, signal_data, strategy)
                     
                     if confirmation['confirmed']:
                         entry = row['close']

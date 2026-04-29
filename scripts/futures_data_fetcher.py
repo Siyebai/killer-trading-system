@@ -15,6 +15,8 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import logging
 
+import time
+
 try:
     import requests
 except ImportError:
@@ -129,12 +131,17 @@ class FuturesDataFetcher:
             'lmt': str(count)
         }
 
-        try:
-            resp = requests.get(self.base_url, params=params, headers=self.headers, timeout=30)
-            data = resp.json()
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                resp = requests.get(self.base_url, params=params, headers=self.headers, timeout=60)
+                data = resp.json()
 
             if not data.get('data') or not data['data'].get('klines'):
-                logger.warning(f"无数据返回: {symbol}")
+                logger.warning(f"无数据返回: {symbol} (attempt {attempt+1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(2 * (attempt + 1))
+                    continue
                 return None
 
             records = []
@@ -175,10 +182,17 @@ class FuturesDataFetcher:
             return df
 
         except requests.exceptions.Timeout:
-            logger.error(f"请求超时: {symbol}")
+            logger.warning(f"请求超时: {symbol} (attempt {attempt+1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
             return None
         except Exception as e:
-            logger.error(f"数据获取失败: {symbol} - {e}")
+            logger.warning(f"数据获取失败: {symbol} - {e} (attempt {attempt+1}/{max_retries})")
+            if attempt < max_retries - 1:
+                time.sleep(2 * (attempt + 1))
+                continue
+            logger.error(f"数据获取最终失败: {symbol} - 重试{max_retries}次后仍失败")
             return None
 
     def fetch_multiple(self, symbols: List[str] = None, period: str = '1d', count: int = 500) -> Dict[str, pd.DataFrame]:
