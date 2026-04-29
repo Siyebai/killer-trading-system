@@ -157,7 +157,7 @@ def fetch_current_price(symbol="BTCUSDT"):
         with urllib.request.urlopen(req, timeout=5) as resp:
             data = json.loads(resp.read())
             return float(data['price'])
-    except:
+    except Exception:
         return None
 
 

@@ -68,7 +68,7 @@ def get_funding_bias():
             return 0.0, 0.04
         elif rate < -0.0002:
             return 0.04, 0.0
-    except:
+    except Exception:
         pass
     return 0.0, 0.0
 

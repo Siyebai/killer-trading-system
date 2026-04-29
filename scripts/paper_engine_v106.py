@@ -166,7 +166,11 @@ def run_scan():
 
         # 检查持仓是否需要平仓
         if pos:
-            bars_held = state["scan_count"] - pos["entry_scan"]
+            # [FIX-8] 用时间戳计算持仓小时数，避免--once多次调用虚高
+            if "entry_time_ts" in pos:
+                bars_held = int((time.time() - pos["entry_time_ts"]) / 3600)
+            else:
+                bars_held = state["scan_count"] - pos["entry_scan"]  # 兼容旧state
             direction = pos["direction"]
             sl, tp    = pos["sl"], pos["tp"]
             hit_sl    = (direction == "LONG"  and cur <= sl) or \
@@ -218,7 +222,8 @@ def run_scan():
                 state["positions"][symbol] = {
                     "direction": direction, "entry": cur,
                     "sl": round(sl, 4), "tp": round(tp, 4),
-                    "entry_scan": state["scan_count"],
+                    "entry_scan": state["scan_count"],   # 保留兼容
+                    "entry_time_ts": time.time(),        # [FIX-8] 用时间戳计算持仓时间
                     "entry_time": now_cst(),
                     "conf": round(conf, 3), "atr": round(atr, 4)
                 }
@@ -243,6 +248,7 @@ def run_scan():
         _log(f"  最近: {t['symbol']} {t['direction']} {t['exit_reason']} "
              f"{t['pnl_pct']:+.3f}% ${t['pnl_u']:+.2f}U")
 
+    state["capital"] = round(cap, 2)  # [FIX-9] 确保capital与cap本地变量最终同步
     save_state(state)
     _log(f"✔ 状态已保存  下次扫描: 1小时后")
     return state

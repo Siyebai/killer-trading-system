@@ -30,7 +30,7 @@ def load_funding():
         rate = float(latest['fundingRate'])
         signal = 'SHORT' if rate > 0.001 else ('LONG' if rate < -0.0005 else 'NEUTRAL')
         return {'rate': rate, 'signal': signal, 'strength': min(abs(rate)/0.001, 1.0)}
-    except:
+    except Exception:
         return {'rate': 0, 'signal': 'NEUTRAL', 'strength': 0}
 
 def backtest_segment(data, start, end, label, conf_threshold=0.62):

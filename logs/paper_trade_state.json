@@ -8,12 +8,13 @@
       "entry_scan": 16,
       "entry_time": "2026-04-29 14:42 CST",
       "conf": 0.827,
-      "atr": 311.91
+      "atr": 311.91,
+      "entry_time_ts": 1777445716.4463742
     }
   },
   "trades": [],
   "capital": 10000.0,
-  "scan_count": 21,
+  "scan_count": 23,
   "peak": 10000.0,
   "start_time": "2026-04-29 11:33 CST"
 }
