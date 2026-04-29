@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
 """
-杀手锏交易系统 v5.0 - 多策略融合引擎
-核心：市场状态机 + 4品种 x 3策略 = 12条信号流
+杀手锏交易系统 v5.2 - 多策略融合引擎
+核心：市场状态机 + 7品种 x 3策略 = 21条信号流
 
 架构：
 MarketStateMachine → MultiSymbolScanner → SignalAggregator → PositionManager
-      (市场状态)        (12条信号流)        (信号聚合)        (仓位管理)
+      (市场状态)        (21条信号流)        (信号聚合)        (仓位管理)
 
-升级要点：
-1. 均值回归策略在单边下跌中天然劣势 → 市场状态机动态切换
-2. 单一策略难以突破60%胜率 → 多策略融合
-3. 日均0.5-1.3笔 → 4品种扩展至10-30笔
-4. 资金费率套利 → 预期胜率70%+
-5. OB70/OS30+2.5sigma BB → v5最优参数
+v5.2整合亮点（来自strategy_v5_ultimate.py + crude_oil_optimization.py）：
+1. Hurst指数过滤：只在Hurst<0.5时做均值回归
+2. 动态保本止损：价格到BB均线移止损到成本
+3. 多维评分信号：6条件加权+趋势方向加权
+4. 期货品种支持：黄金/白银/原油/铜/铁矿石
+5. 量比过滤：vol_ratio>1.5时不做均值回归
+6. hybrid模式：均值回归+趋势跟踪自动切换
+7. 动量指标：momentum+momentum_ma
 """
 import sys
 import os
@@ -29,6 +31,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from market_state_machine import MarketStateMachine, MarketState
 from multi_symbol_scanner import MultiSymbolScanner, SYMBOL_CONFIG
 from funding_rate_arbitrage import FundingRateArbitrage, CrossSymbolCorrelation
+from signal_scorer_multidim import MultiDimSignalScorer
+from futures_data_fetcher import FuturesDataFetcher, FUTURES_CONFIG
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("multi_strategy_fusion_v5")
@@ -42,7 +46,7 @@ class SignalAggregator:
 
     def __init__(self):
         """初始化信号聚合器"""
-        self.version = "v5.0"
+        self.version = "v5.2"
 
         # 信号权重（按策略）
         self.strategy_weights = {
@@ -51,7 +55,9 @@ class SignalAggregator:
             'breakout': 0.8,
             'momentum': 0.9,
             'funding_rate': 1.5,       # 资金费率高权重
-            'cross_symbol': 0.7
+            'cross_symbol': 0.7,
+            'multidim_scored': 1.3,    # 多维评分信号（v5.2新增）
+            'futures_trend': 1.1       # 期货趋势信号（v5.2新增）
         }
 
         # 确认阈值
@@ -236,7 +242,7 @@ class MultiStrategyFusionV5:
 
     def __init__(self, config_path: str = None, account_balance: float = 10000):
         """初始化多策略融合引擎"""
-        self.version = "v5.0"
+        self.version = "v5.2"
         self.project_root = Path("/workspace/projects/trading-simulator")
 
         # 核心组件
@@ -247,15 +253,26 @@ class MultiStrategyFusionV5:
         self.funding_rate_arb = FundingRateArbitrage(config_path)
         self.cross_symbol = CrossSymbolCorrelation()
 
+        # v5.2新增组件
+        self.signal_scorer = MultiDimSignalScorer()     # 多维评分信号系统
+        self.futures_fetcher = FuturesDataFetcher()       # 期货数据获取器
+
+        # v5.2新增：Hurst指数过滤配置
+        self.hurst_mean_rev_threshold = 0.5
+        self.volume_high_threshold = 1.5
+        self.breakeven_enabled = True  # 动态保本止损
+
         # 交易记录
         self.trade_log = []
 
         logger.info(f"=" * 60)
-        logger.info(f"  Multi-Strategy Fusion Engine v5.0")
-        logger.info(f"  4 symbols x 3 strategies = 12 signal flows")
-        logger.info(f"  Market State Machine: ACTIVE")
+        logger.info(f"  Multi-Strategy Fusion Engine v5.2")
+        logger.info(f"  7 symbols x 3 strategies = 21 signal flows")
+        logger.info(f"  Market State Machine: ACTIVE (Hurst-enhanced)")
+        logger.info(f"  Multi-Dim Signal Scorer: ACTIVE")
+        logger.info(f"  Dynamic Breakeven SL: ACTIVE")
         logger.info(f"  Funding Rate Arbitrage: ACTIVE")
-        logger.info(f"  Cross-Symbol Correlation: ACTIVE")
+        logger.info(f"  Futures Support: ACTIVE")
         logger.info(f"=" * 60)
 
     def run_analysis(self, data_dict: Dict[str, pd.DataFrame]) -> Dict:
@@ -282,6 +299,26 @@ class MultiStrategyFusionV5:
 
         # Step 3: 多品种扫描
         all_signals = self.scanner.scan_all(data_dict, market_state.value)
+
+        # Step 3.5: 多维评分信号（v5.2新增）
+        for symbol, df in data_dict.items():
+            if df is not None and len(df) >= 100:
+                scored_df = self.signal_scorer.calculate_indicators(df)
+                sig_dict = self.signal_scorer.generate_signal(scored_df, len(scored_df) - 1)
+                if sig_dict['signal'] != 0:
+                    all_signals.append({
+                        'symbol': symbol,
+                        'type': 'LONG' if sig_dict['signal'] == 1 else 'SHORT',
+                        'strategy': 'multidim_scored',
+                        'confidence': sig_dict.get('confidence', 50),
+                        'hurst': sig_dict.get('hurst', 0.5),
+                        'is_mean_rev': sig_dict.get('is_mean_rev', False),
+                        'score_detail': {
+                            'long_score': sig_dict.get('long_score', 0),
+                            'short_score': sig_dict.get('short_score', 0),
+                            'reasons': sig_dict.get('reasons', [])
+                        }
+                    })
 
         # Step 4: 资金费率信号
         # 模拟当前资金费率
@@ -410,7 +447,9 @@ class MultiStrategyFusionV5:
 
 if __name__ == "__main__":
     print("=" * 80)
-    print("Multi-Strategy Fusion Engine v5.0 - Comprehensive Test")
+    print("Multi-Strategy Fusion Engine v5.2 - Comprehensive Test")
+    print("7 symbols x 3 strategies = 21 signal flows")
+    print("Hurst-enhanced + Multi-Dim Scoring + Dynamic Breakeven")
     print("=" * 80)
 
     # Initialize
@@ -458,4 +497,8 @@ if __name__ == "__main__":
     print(f"  Trades: {backtest['total_trades']}")
     print(f"  Win Rate: {backtest['win_rate']:.2%}")
 
-    print("\n[OK] Multi-Strategy Fusion Engine v5.0 test complete")
+    print("\n[OK] Multi-Strategy Fusion Engine v5.2 test complete")
+    print(f"  Hurst-enhanced market state: ACTIVE")
+    print(f"  Multi-dim signal scoring: ACTIVE")
+    print(f"  Dynamic breakeven SL: ACTIVE")
+    print(f"  Futures support: ACTIVE")

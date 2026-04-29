@@ -1,6 +1,6 @@
 ---
 name: trading-simulator
-description: 工业级杀手锏多策略融合交易系统(v5.1)；当用户需要贝叶斯参数优化、HRP组合优化、元学习快速适应、Hawkes市场冲击建模、因果因子筛选、多策略融合回测、市场状态识别与策略切换、4品种并行扫描、资金费率套利、凯利仓位管理时使用
+description: 工业级杀手锏多策略融合交易系统(v5.2)；当用户需要Hurst指数过滤、多维评分信号、动态保本止损、期货品种支持、贝叶斯参数优化、HRP组合优化、元学习快速适应、Hawkes市场冲击建模、因果因子筛选、7品种并行扫描、市场状态识别与策略切换时使用
 dependency:
   python:
     - numpy==1.24.3
@@ -10,26 +10,38 @@ dependency:
     - scikit-learn>=1.2.0
     - bayesian-optimization>=1.4.0
     - ta>=0.10.0
+    - requests>=2.28.0
   system:
     - python3
 ---
 
-# 杀手锏交易系统 v5.1
+# 杀手锏交易系统 v5.2
 
 ## 任务目标
-- 本 Skill 用于: 加密货币多策略融合交易系统,集成前沿量化理论(Hawkes/因果/元学习/HRP)与贝叶斯参数优化
-- 能力包含: 贝叶斯参数优化+HRP分层风险平价+MAML元学习+Hawkes市场冲击+因果因子评分+市场状态机+多策略融合+4品种扫描+凯利仓位管理+样本外验证
-- 触发条件: "参数优化"、"组合优化"、"元学习"、"市场冲击"、"因果因子"、"策略融合回测"、"市场状态识别"、"资金费率套利"、"品种扫描"
+- 本 Skill 用于: 加密货币+期货多策略融合交易系统,集成Hurst指数过滤、多维评分信号、动态保本止损、7品种扫描、前沿量化理论
+- 能力包含: Hurst指数+多维评分+保本止损+期货支持+贝叶斯优化+HRP+MAML+Hawkes+因果因子+市场状态机+7品种扫描+凯利仓位管理+样本外验证
+- 触发条件: "Hurst过滤"、"多维评分"、"保本止损"、"期货交易"、"参数优化"、"组合优化"、"元学习"、"市场冲击"、"因果因子"、"策略融合回测"、"市场状态识别"、"资金费率套利"
 
 ## 前置准备
-- 依赖说明: Python 3.8+, numpy, pandas, scipy, statsmodels, scikit-learn, bayesian-optimization, ta
-- 配置文件: `config.json` (v5.1唯一权威配置)
+- 依赖说明: Python 3.8+, numpy, pandas, scipy, statsmodels, scikit-learn, bayesian-optimization, ta, requests
+- 配置文件: `config.json` (v5.2唯一权威配置)
 
 ## 操作步骤
 
-### 标准流程(v5.1)
+### 标准流程(v5.2)
 
-1. **贝叶斯参数优化** — 自动搜索最优参数组合
+1. **多维评分信号** — 6条件加权+趋势方向加权+Hurst过滤
+   - 脚本调用示例:`python scripts/signal_scorer_multidim.py --threshold 0.20 --bars 500`
+   - 输出:信号方向+评分详情+Hurst值+保本止损触发统计
+   - 评分维度:趋势强度(0.35)/MACD(0.30)/均线突破(0.25)/RSI(0.20)/成交量(0.15)/动量(0.15)
+   - Hurst过滤:Hurst<0.5才允许均值回归信号
+
+2. **期货数据获取** — 东方财富API+币安API双数据源
+   - 脚本调用示例:`python scripts/futures_data_fetcher.py --symbol GOLD --period 1d --count 500`
+   - 支持品种:BTC/ETH/BNB/SOL + 黄金/白银/原油/铜/铁矿石
+   - 自动判断品种类型并调用对应API
+
+3. **贝叶斯参数优化** — 自动搜索最优参数组合
    - 脚本调用示例:`python scripts/optimizer_bayes.py --n-iter 30 --init-points 5`
    - 输出:最优参数组合+样本外验证+config.json自动更新
    - 搜索空间:RSI/BB/ATR/ADX共8个维度
@@ -84,18 +96,22 @@ dependency:
 
 ## 资源索引
 
-### v5.1核心新增
+### v5.2核心新增(整合自strategy_v5_ultimate + crude_oil_optimization)
+- [scripts/signal_scorer_multidim.py](scripts/signal_scorer_multidim.py) — 多维评分信号:6条件加权+趋势方向加权+Hurst过滤+动态保本止损
+- [scripts/futures_data_fetcher.py](scripts/futures_data_fetcher.py) — 期货数据获取:东方财富API+币安API双数据源,7品种支持
+
+### v5.1模块
 - [scripts/optimizer_bayes.py](scripts/optimizer_bayes.py) — 贝叶斯优化:GP+EI采集函数,8维参数空间,样本外验证集成
-- [scripts/portfolio_hrp.py](scripts/portfolio_hrp.py) — HRP分层风险平价:层次聚类+递归二分,无需预期收益,4品种分配
+- [scripts/portfolio_hrp.py](scripts/portfolio_hrp.py) — HRP分层风险平价:层次聚类+递归二分,无需预期收益,7品种分配
 - [scripts/meta_learner_maml.py](scripts/meta_learner_maml.py) — MAML元学习:内外循环,5种市场环境,少样本快速适应
 - [scripts/hawkes_process.py](scripts/hawkes_process.py) — Hawkes过程:自激点过程建模,双过程(买/卖),冲击函数I(V)=sigma*V^gamma
 - [scripts/causal_factor_scorer.py](scripts/causal_factor_scorer.py) — 因果因子评分:DAG因果图+Granger因果检验+合成控制,USE/DROP推荐
 
 ### v5.0模块
-- [scripts/market_state_machine.py](scripts/market_state_machine.py) — 市场状态机:3态识别+策略权重映射
-- [scripts/multi_strategy_fusion_v5.py](scripts/multi_strategy_fusion_v5.py) — 多策略融合引擎
+- [scripts/market_state_machine.py](scripts/market_state_machine.py) — 市场状态机:3态识别+策略权重映射+Hurst增强(v5.2)
+- [scripts/multi_strategy_fusion_v5.py](scripts/multi_strategy_fusion_v5.py) — 多策略融合引擎v5.2:7品种x3策略=21条信号流
 - [scripts/funding_rate_arbitrage.py](scripts/funding_rate_arbitrage.py) — 资金费率套利
-- [scripts/multi_symbol_scanner.py](scripts/multi_symbol_scanner.py) — 4品种扫描器
+- [scripts/multi_symbol_scanner.py](scripts/multi_symbol_scanner.py) — 多品种扫描器
 
 ### v1.0.4模块
 - [scripts/kelly_position_manager.py](scripts/kelly_position_manager.py) — 凯利仓位管理
@@ -109,14 +125,18 @@ dependency:
 - [references/quantitative_trading_learning_report.md](references/quantitative_trading_learning_report.md) — 量化交易学习优化报告(理论+方法+实施路径)
 
 ### 配置
-- [config.json](config.json) — v5.1唯一权威配置(含BO/HRP/MAML/Hawkes/Causal参数)
+- [config.json](config.json) — v5.2唯一权威配置(含Hurst/多维评分/期货/BO/HRP/MAML/Hawkes/Causal参数)
 
 ## 注意事项
+- Hurst指数是市场状态识别的关键指标:Hurst<0.5=均值回归市场,Hurst>0.5=趋势市场
+- 多维评分信号的趋势方向加权:顺势×1.5,逆势×0.3,显著改善信号质量
+- 动态保本止损:价格到达BB均线时移止损到成本,有效保护浮盈
+- 量比过滤:vol_ratio>1.5时不做均值回归(高量=趋势市)
 - 贝叶斯优化需严格样本外验证(60/20/20),避免过拟合;建议增加"滚动窗口验证"
 - HRP在协方差矩阵估计不稳定时表现最好;数据量越大效果越好
 - MAML元训练成本较高(10+分钟),建议离线训练后保存元参数
 - Hawkes过程拟合需足够事件(>100),数据不足时参数不稳定
 - 因果因子评分依赖统计检验,样本量<200时结论需谨慎
-- v5.1废弃1分钟周期策略(胜率17-39%全面失效)
+- 废弃1分钟周期策略(胜率17-39%全面失效)
 - 月收益预期:保守3-8%,激进10-20%
 - 本系统默认为纯模拟模式,不连接真实交易所,无资金风险

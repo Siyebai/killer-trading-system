@@ -64,6 +64,10 @@ class MarketStateMachine:
         self.bb_extreme_threshold = 2.5     # 布林带2.5标准差
         self.ema_slope_threshold = 0.001    # EMA斜率阈值
 
+        # Hurst指数过滤（整合自v5_ultimate策略）
+        self.hurst_threshold = 0.5         # Hurst < 0.5 为均值回归市场
+        self.hurst_window = 100            # Hurst计算窗口
+
         # 当前状态
         self.current_state = MarketState.RANGING
         self.state_history = []
@@ -123,6 +127,10 @@ class MarketStateMachine:
         # 计算识别指标
         indicators = self._calculate_indicators(df)
 
+        # Hurst指数计算（整合自v5_ultimate策略）
+        hurst = self._calculate_hurst(df['close'], self.hurst_window)
+        indicators['hurst'] = hurst
+
         # 状态判断逻辑
         adx = indicators['adx']
         vol_ratio = indicators['vol_ratio']
@@ -131,6 +139,13 @@ class MarketStateMachine:
         plus_di = indicators['plus_di']
         minus_di = indicators['minus_di']
 
+        # Hurst辅助判断：Hurst < 0.5倾向于均值回归，> 0.5倾向于趋势
+        hurst_boost = 1.0
+        if hurst > 0.55:
+            hurst_boost = 1.2  # 趋势信号增强
+        elif hurst < 0.45:
+            hurst_boost = 0.8  # 趋势信号减弱
+
         # 极端波动检测（最高优先级）
         if vol_ratio > self.vol_extreme_threshold:
             state = MarketState.EXTREME_VOL
@@ -138,8 +153,9 @@ class MarketStateMachine:
             self._update_state(state, confidence, indicators)
             return state, confidence
 
-        # 趋势市检测
-        if adx > self.adx_trend_threshold:
+        # 趋势市检测（Hurst增强）
+        effective_adx = adx * hurst_boost
+        if effective_adx > self.adx_trend_threshold:
             if plus_di > minus_di and ema_slope > self.ema_slope_threshold:
                 state = MarketState.TRENDING_UP
                 confidence = min((adx - self.adx_trend_threshold) * 3, 100)
@@ -159,6 +175,24 @@ class MarketStateMachine:
         confidence = max(50 - adx, 10)
         self._update_state(state, confidence, indicators)
         return state, confidence
+
+    def _calculate_hurst(self, series: pd.Series, window: int = 100) -> float:
+        """简化Hurst指数计算（整合自v5_ultimate策略）"""
+        ts = series.iloc[-window:] if len(series) >= window else series
+        if len(ts) < 20:
+            return 0.5
+        try:
+            lags = range(2, min(20, len(ts)))
+            tau = [np.std(np.subtract(ts.values[lag:], ts.values[:-lag])) for lag in lags]
+            valid = [(np.log(lag), np.log(t)) for lag, t in zip(lags, tau) if t > 0]
+            if len(valid) < 3:
+                return 0.5
+            x = [v[0] for v in valid]
+            y = [v[1] for v in valid]
+            poly = np.polyfit(x, y, 1)
+            return float(np.clip(poly[0], 0.0, 1.0))
+        except Exception:
+            return 0.5
 
     def _calculate_indicators(self, df: pd.DataFrame) -> Dict:
         """计算市场状态识别指标"""

@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v5.1",
+    "version": "v5.2",
     "environment": "production",
     "log_level": "INFO"
   },
@@ -10,7 +10,10 @@
       "BTCUSDT",
       "ETHUSDT",
       "SOLUSDT",
-      "BNBUSDT"
+      "BNBUSDT",
+      "GOLD",
+      "SILVER",
+      "CRUDE_OIL"
     ],
     "timeframes": [
       "1H",
@@ -161,14 +164,38 @@
     "init_points": 5,
     "acquisition_function": "EI",
     "param_space": {
-      "rsi_oversold": [20, 40],
-      "rsi_overbought": [60, 80],
-      "bb_std": [1.5, 3.5],
-      "bb_period": [15, 30],
-      "sl_atr_multiplier": [1.0, 2.5],
-      "tp_atr_multiplier": [2.0, 5.0],
-      "adx_trend_threshold": [18, 35],
-      "bb_extreme_threshold": [2.0, 3.5]
+      "rsi_oversold": [
+        20,
+        40
+      ],
+      "rsi_overbought": [
+        60,
+        80
+      ],
+      "bb_std": [
+        1.5,
+        3.5
+      ],
+      "bb_period": [
+        15,
+        30
+      ],
+      "sl_atr_multiplier": [
+        1.0,
+        2.5
+      ],
+      "tp_atr_multiplier": [
+        2.0,
+        5.0
+      ],
+      "adx_trend_threshold": [
+        18,
+        35
+      ],
+      "bb_extreme_threshold": [
+        2.0,
+        3.5
+      ]
     },
     "oos_validation": true,
     "val_penalty_factor": 0.3
@@ -187,7 +214,13 @@
     "outer_lr": 0.001,
     "n_inner_steps": 5,
     "n_meta_tasks": 10,
-    "environments": ["bull", "bear", "ranging", "crash", "recovery"]
+    "environments": [
+      "bull",
+      "bear",
+      "ranging",
+      "crash",
+      "recovery"
+    ]
   },
   "hawkes_process": {
     "enabled": true,
@@ -195,13 +228,60 @@
     "beta": 0.8,
     "mu": 0.1,
     "signal_confirmation_threshold": 1.5,
-    "impact_power_law_range": [0.3, 0.7]
+    "impact_power_law_range": [
+      0.3,
+      0.7
+    ]
   },
   "causal_factor": {
     "enabled": true,
     "granger_max_lag": 5,
     "granger_significance": 0.05,
     "min_combined_score": 0.1,
-    "recommended_factors": ["rsi_signal", "bb_signal", "ema_cross", "adx_trend", "volume_surge"]
+    "recommended_factors": [
+      "rsi_signal",
+      "bb_signal",
+      "ema_cross",
+      "adx_trend",
+      "volume_surge"
+    ]
+  },
+  "signal_scorer": {
+    "enabled": true,
+    "signal_threshold": 0.2,
+    "trend_direction_weight": 1.5,
+    "counter_trend_weight": 0.3,
+    "volume_high_threshold": 1.5,
+    "hurst_mean_rev_threshold": 0.5,
+    "rsi_oversold": 30,
+    "rsi_overbought": 70,
+    "bb_std": 2.5,
+    "momentum_period": 10,
+    "adx_trend_threshold": 25
+  },
+  "hurst_filter": {
+    "enabled": true,
+    "threshold": 0.5,
+    "window": 100,
+    "trend_boost": 1.2,
+    "mean_rev_dampen": 0.8
+  },
+  "breakeven_sl": {
+    "enabled": true,
+    "trigger_at_bb_mid": true,
+    "min_profit_pct": 0.0
+  },
+  "futures": {
+    "enabled": true,
+    "symbols": [
+      "GOLD",
+      "SILVER",
+      "CRUDE_OIL",
+      "COPPER",
+      "IRON_ORE"
+    ],
+    "default_period": "1d",
+    "data_source": "eastmoney",
+    "margin_mode": "isolated"
   }
 }
