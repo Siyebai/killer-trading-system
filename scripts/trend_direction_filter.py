@@ -31,7 +31,7 @@ class TrendDirectionFilter:
 
     def __init__(self, ema_period: int = 200):
         """初始化过滤器"""
-        self.ema_period = ema_period
+        self.ema_period = ema_period or 200
         self.trend_threshold_long = 1.005   # 价格在EMA200上方0.5%为多头
         self.trend_threshold_short = 0.995  # 价格在EMA200下方0.5%为空头
 
@@ -42,7 +42,7 @@ class TrendDirectionFilter:
         self.blocked_long_signals = 0
         self.blocked_short_signals = 0
 
-        logger.info(f"✅ 趋势方向过滤器初始化完成 (EMA{ema_period})")
+        logger.info(f"✅ 趋势方向过滤器初始化完成 (EMA{self.ema_period})")
 
     def detect_market_regime(self, df: pd.DataFrame) -> str:
         """
@@ -147,8 +147,8 @@ class MaxConsecutiveLossFilter:
         - max_consecutive_losses: 最大连续亏损笔数（默认5笔）
         - daily_loss_limit: 单日最大亏损百分比（默认3%）
         """
-        self.max_consecutive_losses = max_consecutive_losses
-        self.daily_loss_limit = daily_loss_limit
+        self.max_consecutive_losses = max_consecutive_losses or 5
+        self.daily_loss_limit = daily_loss_limit or 3.0
 
         # 状态追踪
         self.consecutive_losses = 0
@@ -160,7 +160,7 @@ class MaxConsecutiveLossFilter:
         # 统计
         self.triggered_count = 0  # 熔断触发次数
 
-        logger.info(f"✅ 最大连续亏损过滤器初始化完成 (最大{max_consecutive_losses}笔, 日限{daily_loss_limit}%)")
+        logger.info(f"✅ 最大连续亏损过滤器初始化完成 (最大{self.max_consecutive_losses}笔, 日限{self.daily_loss_limit}%)")
 
     def check_and_update(self, profit: float, reset_daily: bool = True) -> Tuple[bool, str]:
         """

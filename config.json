@@ -1,7 +1,7 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v1.0.3",
+    "version": "v1.0.4",
     "environment": "production",
     "log_level": "INFO"
   },
@@ -19,13 +19,16 @@
     "trailing_stop": 1.5,
     "trailing_activation": 1.0,
     "max_position_size_percent": 30,
-    "max_daily_loss": 3.0,
+    "max_daily_loss": 5.0,
     "max_consecutive_losses": 5,
     "max_drawdown": 15.0,
     "risk_per_trade": 1.0,
     "use_dynamic_sl_tp": true,
     "atr_multiplier_sl": 1.5,
-    "atr_multiplier_tp": 3.0
+    "atr_multiplier_tp": 3.0,
+    "kelly_fraction": 0.5,
+    "max_single_loss": 2.5,
+    "max_position_size": 25
   },
   "trend_filter": {
     "enabled": true,
