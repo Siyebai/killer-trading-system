@@ -14,6 +14,6 @@
   "trades": [],
   "capital": 10000.0,
   "start_time": "2026-04-29 11:33:27 CST",
-  "scan_count": 1,
+  "scan_count": 10,
   "peak": 10000.0
 }

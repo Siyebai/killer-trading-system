@@ -40,3 +40,17 @@
 - 行情来源：binance-cli 主网实时数据
 - 信号：signal_engine_v4.py（conf 0.74-0.86）
 - 状态持久化：logs/paper_trade_state.json
+
+## v1.0.6 (2026-04-29 北京时间)
+### 新增
+- `scripts/signal_engine_v11_ofi_vwap.py`：VWAP均值回归+趋势过滤策略
+  - 三段验证全盈：训53笔WR49.1%/验17笔WR52.9%/测14笔WR42.9%
+  - 均EV: +0.238R/笔（高于v4.0的+0.153R/笔）
+  - 参数: dev=1.2σ | sl=1.0ATR | tp=VWAP | trend=EMA50
+  - 理论基础: VWAP机构锚定 + Wyckoff方向过滤
+- `skills/trading-research`：从ClawHub安装市场分析技能
+  - 支持: 实时TA分析/持仓评估/技术信号
+
+### 策略库更新
+- v4.0 BTC/SOL 1H均值回归（主力策略，纸交易中）
+- v11 VWAP+趋势 BTC 1H（新增，待纸交易验证）
