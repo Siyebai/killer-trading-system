@@ -21,3 +21,22 @@
 - v4.0均值回归策略通过三段验证
 - 均WR50.1% / EV+0.153% / 回撤0.18%（BTCUSDT 1H合约）
 - 基准：sl=2.0ATR / tp=3.5ATR / max_hold=24根
+
+## v1.0.5 (2026-04-29 北京时间)
+### 新增
+- `scripts/paper_engine_v105.py`：BTC+SOL双币种纸交易引擎（主网行情+本地模拟）
+- `scripts/testnet_engine_v105.py`：Testnet执行引擎（环境就绪后可用）
+- `scripts/signal_engine_advanced.py`：高级策略引擎v2（SuperTrend/Williams%R/CME缺口）
+- `scripts/signal_engine_advanced_v3.py`：高级策略引擎v3（修复SuperTrend+MACD+RSI背离）
+- `data/BTCUSDT_15m.json` 等：15m多币种数据
+
+### 验证结论
+- 累计验证策略：12个策略 × 11个品种周期组合 = 完整矩阵扫描
+- 唯一通过三段全盈：v4.0均值回归 BTC/SOL 1h（EV+0.210%/+0.140%）
+- SuperTrend修复：239次/5000根（修复前1-9次）
+- 纸交易引擎启动首次信号：SOLUSDT SHORT（RSI超买+BB上轨）
+
+### 架构
+- 行情来源：binance-cli 主网实时数据
+- 信号：signal_engine_v4.py（conf 0.74-0.86）
+- 状态持久化：logs/paper_trade_state.json

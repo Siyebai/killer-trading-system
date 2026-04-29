@@ -1,0 +1,19 @@
+{
+  "positions": {
+    "SOLUSDT": {
+      "direction": "SHORT",
+      "entry": 84.38,
+      "sl": 85.1714,
+      "tp": 82.995,
+      "entry_scan": 1,
+      "entry_time": "2026-04-29 11:33:33 CST",
+      "conf": 0.813,
+      "atr": 0.3957
+    }
+  },
+  "trades": [],
+  "capital": 10000.0,
+  "start_time": "2026-04-29 11:33:27 CST",
+  "scan_count": 1,
+  "peak": 10000.0
+}
