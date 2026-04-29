@@ -1,13 +1,21 @@
 {
   "system": {
     "name": "杀手锏交易系统",
-    "version": "v5.0",
+    "version": "v5.1",
     "environment": "production",
     "log_level": "INFO"
   },
   "trading": {
-    "symbols": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT"],
-    "timeframes": ["1H", "15m"],
+    "symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "SOLUSDT",
+      "BNBUSDT"
+    ],
+    "timeframes": [
+      "1H",
+      "15m"
+    ],
     "leverage": 3,
     "position_size": 0.02,
     "min_order_size": 0.001,
@@ -24,8 +32,8 @@
     "max_drawdown": 15.0,
     "risk_per_trade": 1.0,
     "use_dynamic_sl_tp": true,
-    "atr_multiplier_sl": 1.5,
-    "atr_multiplier_tp": 3.0,
+    "atr_multiplier_sl": 2.5,
+    "atr_multiplier_tp": 5.0,
     "kelly_fraction": 0.5,
     "max_single_loss": 2.5,
     "max_total_exposure": 15.0,
@@ -48,10 +56,10 @@
   },
   "market_state_machine": {
     "enabled": true,
-    "adx_trend_threshold": 25,
+    "adx_trend_threshold": 24.33589354992338,
     "adx_strong_threshold": 40,
     "vol_extreme_threshold": 0.05,
-    "bb_extreme_threshold": 2.5,
+    "bb_extreme_threshold": 2.0,
     "ema_slope_threshold": 0.001
   },
   "strategy": {
@@ -62,12 +70,12 @@
     "use_market_regime": true,
     "adaptive_weights": true,
     "v5_optimal_params": {
-      "rsi_oversold": 30,
-      "rsi_overbought": 70,
-      "bb_std": 2.5,
-      "bb_period": 20,
-      "sl_atr_multiplier": 1.5,
-      "tp_atr_multiplier": 3.0
+      "rsi_oversold": 27.2939024316399,
+      "rsi_overbought": 60.0,
+      "bb_std": 1.600219808213605,
+      "bb_period": 17,
+      "sl_atr_multiplier": 2.5,
+      "tp_atr_multiplier": 5.0
     }
   },
   "funding_rate": {
@@ -83,8 +91,8 @@
     "correlations": {
       "BTCUSDT_ETHUSDT": 0.85,
       "BTCUSDT_SOLUSDT": 0.75,
-      "BTCUSDT_BNBUSDT": 0.70,
-      "ETHUSDT_SOLUSDT": 0.80
+      "BTCUSDT_BNBUSDT": 0.7,
+      "ETHUSDT_SOLUSDT": 0.8
     },
     "lag_minutes": {
       "BTCUSDT_ETHUSDT": 2,
@@ -146,5 +154,54 @@
     "slippage": 0.0005,
     "start_date": "2024-01-01",
     "end_date": "2024-12-31"
+  },
+  "bayesian_optimization": {
+    "enabled": true,
+    "n_iter": 30,
+    "init_points": 5,
+    "acquisition_function": "EI",
+    "param_space": {
+      "rsi_oversold": [20, 40],
+      "rsi_overbought": [60, 80],
+      "bb_std": [1.5, 3.5],
+      "bb_period": [15, 30],
+      "sl_atr_multiplier": [1.0, 2.5],
+      "tp_atr_multiplier": [2.0, 5.0],
+      "adx_trend_threshold": [18, 35],
+      "bb_extreme_threshold": [2.0, 3.5]
+    },
+    "oos_validation": true,
+    "val_penalty_factor": 0.3
+  },
+  "portfolio_optimization": {
+    "method": "HRP",
+    "version": "v5.1",
+    "hrp_clustering_method": "single",
+    "shrinkage_intensity": 0.5,
+    "rebalance_frequency_days": 7
+  },
+  "meta_learning": {
+    "enabled": true,
+    "method": "MAML",
+    "inner_lr": 0.01,
+    "outer_lr": 0.001,
+    "n_inner_steps": 5,
+    "n_meta_tasks": 10,
+    "environments": ["bull", "bear", "ranging", "crash", "recovery"]
+  },
+  "hawkes_process": {
+    "enabled": true,
+    "alpha": 0.6,
+    "beta": 0.8,
+    "mu": 0.1,
+    "signal_confirmation_threshold": 1.5,
+    "impact_power_law_range": [0.3, 0.7]
+  },
+  "causal_factor": {
+    "enabled": true,
+    "granger_max_lag": 5,
+    "granger_significance": 0.05,
+    "min_combined_score": 0.1,
+    "recommended_factors": ["rsi_signal", "bb_signal", "ema_cross", "adx_trend", "volume_surge"]
   }
 }
