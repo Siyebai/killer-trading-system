@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-04-30T11:41:12.177396",
+  "timestamp": "2026-04-30T11:52:34.672528",
   "version": "v1.0.5-P1",
   "method": "Bayesian Optimization (GP + EI) with P0-optimized strategy",
   "best_params": {

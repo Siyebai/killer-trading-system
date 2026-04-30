@@ -385,6 +385,7 @@ class ClosedLoopEngine:
             'trailing_stop_atr': 1.0,
             'trailing_step_atr': 0.5,
             'max_consecutive_losses': 8,
+            'max_hold_bars': 24,   # P3-2新增: 时间止损（1H K线=24小时强制平仓，防止套牢）
             'daily_loss_limit': 0.05,
             'circuit_breaker_hours': 6,
             'min_confirmations': 1,
@@ -565,9 +566,13 @@ class ClosedLoopEngine:
             ema_slope_long_threshold = 0.001   # 0.1%/bar，上升趋势阈值
             ema_slope_short_threshold = -0.001  # -0.1%/bar，下降趋势阈值
             if ema_slope > ema_slope_long_threshold:
-                tf_long_score += 0.30
+                base = 0.30
+                if hurst > 0.55: base = 0.40   # P3修复: 趋势市增强趋势因子
+                tf_long_score += base
             elif ema_slope < ema_slope_short_threshold:
-                tf_short_score += 0.30
+                base = 0.30
+                if hurst > 0.55: base = 0.40   # P3修复: 趋势市增强趋势因子
+                tf_short_score += base
 
         # EMA排列：短期 > 长期 = 上升趋势
         ema12 = row.get('ema12', row.get('ma5', row['close']))
@@ -585,12 +590,15 @@ class ClosedLoopEngine:
             atr_val = row.get('atr', 0)
             atr_pct = (atr_val / row['close'] * 100) if row['close'] > 0 else 0.1
 
-            # 突破确认：价格突破20日高点，且突破幅度 > 0.5*ATR（防止噪音）
-            breakout_threshold = atr_val * 0.5
+            # P3-2修复: 突破阈值从0.5*ATR降至0.3*ATR（原太严格导致1年仅1笔趋势交易）
+            breakout_threshold = atr_val * 0.3
+            breakout_boost = 1.0
+            if hurst > 0.55: breakout_boost = 1.4   # 趋势市增强突破信号
+            elif hurst < 0.45: breakout_boost = 0.7  # 均值回归市削弱突破信号
             if row['close'] > recent_high + breakout_threshold:
-                tf_long_score += 0.25
+                tf_long_score += 0.25 * breakout_boost
             if row['close'] < recent_low - breakout_threshold:
-                tf_short_score += 0.25
+                tf_short_score += 0.25 * breakout_boost
 
             # 价格 vs EMA20 的偏离（偏离大 = 趋势强）
             ma20 = row.get('ma20', row['close'])
@@ -617,35 +625,55 @@ class ClosedLoopEngine:
         if row['rsi'] > 75 and vol_ratio > 2.0: fr_short_score += 0.50
         elif row['rsi'] < 25 and vol_ratio > 2.0: fr_long_score += 0.50
         
-        # === Hurst方向加权 ===
+        # === Hurst方向加权（已修正）===
+        # P3-1修复: 趋势市→增强趋势策略(tf_boost=1.3)，削弱均值回归(mr_boost=0.7)
+        # 原错误: 趋势市反而削弱趋势策略，导致498笔逆势亏损
         hurst = row.get('hurst', 0.5)
         if hurst < 0.45:  # 均值回归市场
             mr_boost, tf_boost = 1.3, 0.7
-        elif hurst > 0.55:  # 趋势市场
+        elif hurst > 0.55:  # 趋势市场 — 增强趋势策略
             mr_boost, tf_boost = 0.7, 1.3
         else:
             mr_boost, tf_boost = 1.0, 1.0
         
+        # P3-3新增: SOL/BNB纯突破策略 — 专为强趋势币种设计（替代失效的MACD交叉）
+        # 触发条件: 价格突破N根K线内高/低点，且RSI处于极端区域
+        breakout_long_score = 0
+        breakout_short_score = 0
+        lookback = 20
+        if i >= lookback:
+            recent_high = df['high'].iloc[i-lookback:i].max()
+            recent_low = df['low'].iloc[i-lookback:i].min()
+            atr_now = row.get('atr', df['close'].iloc[i] * 0.005)
+            # 宽松突破: 0.3×ATR（原trend策略要求0.5×ATR）
+            if row['close'] > recent_high + 0.3 * atr_now and row['rsi'] > 60:
+                breakout_long_score = 0.55
+            if row['close'] < recent_low - 0.3 * atr_now and row['rsi'] < 40:
+                breakout_short_score = 0.55
+        
         # === 加权融合 ===
         w = weights
         long_signal = (
-            mr_long_score * w.get('mean_reversion', 0.33) * mr_boost +
-            tf_long_score * w.get('trend_following', 0.33) * tf_boost +
-            fr_long_score * w.get('funding_rate', 0.34)
+            mr_long_score * w.get('mean_reversion', 0.25) * mr_boost +
+            tf_long_score * w.get('trend_following', 0.25) * tf_boost +
+            breakout_long_score * w.get('breakout', 0.25) +
+            fr_long_score * w.get('funding_rate', 0.25)
         )
         short_signal = (
-            mr_short_score * w.get('mean_reversion', 0.33) * mr_boost +
-            tf_short_score * w.get('trend_following', 0.33) * tf_boost +
-            fr_short_score * w.get('funding_rate', 0.34)
+            mr_short_score * w.get('mean_reversion', 0.25) * mr_boost +
+            tf_short_score * w.get('trend_following', 0.25) * tf_boost +
+            breakout_short_score * w.get('breakout', 0.25) +
+            fr_short_score * w.get('funding_rate', 0.25)
         )
         
-        # 信号阈值（动态调整：趋势市提高阈值过滤噪音，均值回归市降低阈值增加信号）
+        # P3-1修复: 信号阈值反向（趋势市→更严格过滤噪音；均值回归市→放宽产生更多信号）
+        # 原错误: 趋势市用0.30导致大量噪音信号，均值回归市用0.25过于保守
         if hurst > 0.55:  # 趋势市场，信号少但准
-            signal_threshold = 0.30
+            signal_threshold = 0.50
         elif hurst < 0.45:  # 均值回归市场，多信号
-            signal_threshold = 0.20
+            signal_threshold = 0.35
         else:
-            signal_threshold = 0.25
+            signal_threshold = 0.42  # 中性市场，平衡信号数量和质量
         
         if long_signal > short_signal and long_signal >= signal_threshold:
             # 信号方向优势检查：至少比反向信号强20%
@@ -706,7 +734,12 @@ class ClosedLoopEngine:
             for sym in list(positions.keys()):
                 pos = positions[sym]
                 pnl = 0
+                # P3-2新增: 时间止损准备 — 超过N根K线强制平仓
+                time_stop_bars = self.config.get('max_hold_bars', 24)
+                bars_held = i - pos.get('entry_bar', i)
+                
                 closed = False
+                pnl = 0.0  # 预定义，防止time-stop时未赋值
                 
                 if pos['type'] == 'LONG':
                     # 动态保本止损：价格到BB均线移止损到成本
@@ -726,6 +759,9 @@ class ClosedLoopEngine:
                     elif row['high'] >= pos['tp']:
                         pnl = abs(pos['tp'] - pos['entry']) / pos['entry']
                         closed = True
+                    elif bars_held >= time_stop_bars:
+                        pnl = (row['close'] - pos['entry']) / pos['entry'] - 0.0009
+                        closed = True
                 elif pos['type'] == 'SHORT':
                     if self.config.get('breakeven_at_bb_mid') and row['close'] <= row['bb_mid'] and pos['sl'] > pos['entry']:
                         pos['sl'] = pos['entry']
@@ -742,6 +778,9 @@ class ClosedLoopEngine:
                         closed = True
                     elif row['low'] <= pos['tp']:
                         pnl = abs(pos['entry'] - pos['tp']) / pos['entry']
+                        closed = True
+                    elif bars_held >= time_stop_bars:
+                        pnl = (pos['entry'] - row['close']) / pos['entry'] - 0.0009
                         closed = True
                 
                 if closed:
@@ -778,6 +817,27 @@ class ClosedLoopEngine:
                         'strategy': pos.get('strategy', 'unknown'),
                         'confirmed': pos.get('confirmed', False)
                     })
+                
+                # P3-2新增: 时间止损强制平仓（趋势反转后长期套牢保护）
+                if time_stop_triggered:
+                    pnl = (row['close'] - pos['entry']) / pos['entry'] if pos['type'] == 'LONG' else (pos['entry'] - row['close']) / pos['entry']
+                    position_ratio = pos.get('kelly', 0.1)
+                    actual_pnl = pnl * position_ratio
+                    equity *= (1 + actual_pnl)
+                    total_trades += 1
+                    if pnl > 0:
+                        wins += 1
+                    else:
+                        self.consecutive_losses += 1
+                        self.daily_pnl -= abs(pnl) * position_ratio
+                    trade_log.append({
+                        'symbol': sym, 'type': pos['type'],
+                        'entry': pos['entry'], 'exit': row['close'],
+                        'pnl': pnl, 'strategy': pos.get('strategy', 'unknown'),
+                        'confirmed': pos.get('confirmed', False),
+                        'exit_reason': 'time_stop'
+                    })
+                    self.feedback_loop.record_trade(trade_log[-1])
                     
                     # 反馈闭环
                     self.feedback_loop.record_trade(trade_log[-1])
@@ -831,7 +891,8 @@ class ClosedLoopEngine:
                             'kelly': kelly,
                             'strategy': strategy,
                             'confirmed': True,
-                            'confirmation_score': confirmation['total_score']
+                            'confirmation_score': confirmation['total_score'],
+                            'entry_bar': i   # P3-2新增: 记录开仓K线编号，用于时间止损
                         }
         
         # 清算剩余仓位
