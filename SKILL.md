@@ -1,6 +1,6 @@
 ---
 name: trading-simulator
-description: 工业级杀手锏多策略融合交易系统(v1.0.4)；当用户需要闭环集成回测、风险平价资金分配(ERC/HERC/IVP)、Hurst指数过滤、多维评分信号、动态保本止损、期货品种支持、贝叶斯参数优化、HRP组合优化、元学习快速适应、Hawkes市场冲击建模、因果因子筛选、市场冲击模型统一接口、过拟合检测(CSCV/PBO/DSR)、DAG流水线并行编排时使用
+description: 工业级杀手锏多策略融合交易系统(v1.0.5)；当用户需要闭环集成回测、风险平价资金分配(ERC/HERC/IVP)、Hurst指数过滤、多维评分信号、动态保本止损、期货品种支持、贝叶斯参数优化、HRP组合优化、元学习快速适应、Hawkes市场冲击建模、因果因子筛选、市场冲击模型统一接口、过拟合检测(CSCV/PBO/DSR)、DAG流水线并行编排时使用
 dependency:
   python:
     - numpy>=1.24.0
@@ -15,7 +15,7 @@ dependency:
     - python3
 ---
 
-# 杀手锏交易系统 v1.0.4
+# 杀手锏交易系统 v1.0.5
 
 ## 任务目标
 - 本 Skill 用于: 加密货币+期货多策略融合交易系统,集成闭环引擎、Hurst过滤、多维评分、7品种扫描、DAG流水线并行编排、前沿量化理论
@@ -24,7 +24,7 @@ dependency:
 
 ## 前置准备
 - 依赖说明: Python 3.8+, numpy, pandas, scipy, statsmodels, scikit-learn, bayesian-optimization, ta, requests
-- 配置文件: `config.json` (v1.0.4唯一权威配置)
+- 配置文件: `config.json` (v1.0.5唯一权威配置)
 
 ## 操作步骤
 
@@ -35,8 +35,8 @@ dependency:
    - 输出:完整回测报告+策略权重演化+反馈调整记录+漂移检测结果
    - 内含:Hurst过滤+多维评分+动态保本止损+HRP资金分配+凯利仓位+熔断器+漂移检测
 
-2. **多维评分信号** — 6条件加权+趋势方向加权+Hurst过滤
-   - 脚本调用示例:`python scripts/signal_scorer_multidim.py --threshold 0.20 --bars 500`
+2. **多维评分信号** — 6条件加权+趋势方向加权+Hurst过滤(v1.0.5 P0修复)
+   - 脚本调用示例:`python scripts/signal_scorer_multidim.py --threshold 0.55 --bars 500`
    - 评分维度:趋势强度(0.35)/MACD(0.30)/均线突破(0.25)/RSI(0.20)/成交量(0.15)/动量(0.15)
 
 3. **期货数据获取** — 东方财富API+币安API双数据源(3次重试)

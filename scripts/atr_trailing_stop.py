@@ -66,6 +66,53 @@ class ATRTrailingStop:
         # 活跃订单
         self.active_orders: Dict[str, ATRStopLoss] = {}
 
+    def _get_dynamic_atr_multiplier(self, df: pd.DataFrame, current_atr: float) -> float:
+        """
+        P0修复: 基于真实ATR分位数动态计算止损倍数
+
+        真实市场波动率分布（Kurtosis 7-25）远比模拟数据厚尾，
+        固定1.5x在低波动时被频繁扫止损，在高波动时又不够保护。
+        改用ATR百分位数映射：
+          - ATR低位(分位数<30%): 用更大的止损倍数(2.5x)，防止被噪音扫
+          - ATR中位(30%-70%): 标准倍数(1.8x)
+          - ATR高位(分位数>70%): 用稍小的倍数(1.3x)，但增加Kurtosis缓冲
+        """
+        lookback = 100
+        if len(df) < lookback + 14:
+            return self.atr_multiplier  # 数据不足，退回默认值
+
+        # 计算ATR历史序列（使用标准ATR周期）
+        hl = df['high'].iloc[-lookback:] - df['low'].iloc[-lookback:]
+        hc = np.abs(df['high'].iloc[-lookback:].values - df['close'].shift().iloc[-lookback:].values)
+        lc = np.abs(df['low'].iloc[-lookback:].values - df['close'].shift().iloc[-lookback:].values)
+        tr = np.maximum(np.maximum(hl.values, hc), lc)
+        atr_series = pd.Series(tr).ewm(span=self.atr_period, adjust=False).mean()
+
+        # ATR百分位数
+        atr_percentile = (atr_series < current_atr).sum() / len(atr_series)
+        low_pct = np.percentile(atr_series, 30)
+        high_pct = np.percentile(atr_series, 70)
+
+        # Kurtosis缓冲系数（检测厚尾极端波动）
+        returns = df['close'].pct_change().iloc[-lookback:].dropna()
+        if len(returns) >= 20:
+            kurt = float(pd.Series(returns).kurt())
+            kurtosis_buffer = 1.0 + max(0, (kurt - 3) * 0.05)  # Kurtosis>3时，每+1增加5%缓冲
+        else:
+            kurtosis_buffer = 1.0
+
+        # 动态倍数映射
+        if current_atr < low_pct:
+            multiplier = 2.5  # 低波动，给更多呼吸空间
+        elif current_atr > high_pct:
+            multiplier = 1.3 * kurtosis_buffer  # 高波动+厚尾缓冲
+        else:
+            multiplier = 1.8  # 正常波动，标准倍数
+
+        # 限制范围防止极端值
+        multiplier = float(np.clip(multiplier, 1.0, 3.0))
+        return multiplier
+
     def calculate_atr(self, df: pd.DataFrame) -> float:
         """
         计算ATR（平均真实波幅）
@@ -105,7 +152,8 @@ class ATRTrailingStop:
         return atr.iloc[-1] if len(atr) > 0 else 0.0
 
     def create_stop_loss(self, order_id: str, side: OrderSide,
-                        entry_price: float, atr_value: float) -> ATRStopLoss:
+                        entry_price: float, atr_value: float,
+                        df: Optional[pd.DataFrame] = None) -> ATRStopLoss:
         """
         创建ATR止损订单
 
@@ -114,15 +162,22 @@ class ATRTrailingStop:
             side: 方向
             entry_price: 入场价格
             atr_value: ATR值
+            df: K线数据（用于动态ATR倍数计算，P0修复）
 
         Returns:
             ATR止损订单
         """
+        # P0修复: 使用动态ATR倍数（基于真实ATR分位数+厚尾缓冲）
+        if df is not None and atr_value > 0:
+            dyn_mult = self._get_dynamic_atr_multiplier(df, atr_value)
+        else:
+            dyn_mult = self.atr_multiplier
+
         # 计算初始止损价
         if side == OrderSide.LONG:
-            stop_loss_price = entry_price - (atr_value * self.atr_multiplier)
+            stop_loss_price = entry_price - (atr_value * dyn_mult)
         else:  # SHORT
-            stop_loss_price = entry_price + (atr_value * self.atr_multiplier)
+            stop_loss_price = entry_price + (atr_value * dyn_mult)
 
         stop_order = ATRStopLoss(
             order_id=order_id,

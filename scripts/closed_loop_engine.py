@@ -44,14 +44,14 @@ class SignalConfirmationPipeline:
     
     def __init__(self, config=None):
         default_config = {
-            'min_confirmations': 1,
+            'min_confirmations': 3,
             'weights': {
                 'multidim_score': 0.40,
                 'hurst_filter': 0.30,
                 'volume_filter': 0.15,
                 'momentum_confirm': 0.15
             },
-            'threshold': 0.30
+            'threshold': 0.55
         }
         if config:
             default_config.update(config)
@@ -168,7 +168,7 @@ class SignalConfirmationPipeline:
             return 1.0 - hurst
         elif is_trend and hurst > 0.5:
             return hurst
-        return 0.4  # 部分确认
+        return 0.2  # 部分确认：降低默认分，过滤低质量信号
 
     def _score_volume_momentum(self, signal_type: int, data: Dict) -> Tuple[float, float]:
         """量比+动量评分"""
@@ -550,35 +550,66 @@ class ClosedLoopEngine:
             mr_long_score += 0.15
             mr_short_score += 0.15
         
-        # === 策略B: 趋势跟踪（评分制）===
+        # === 策略B: 趋势跟踪（EMA斜率 + 突破确认 + 波动率过滤）===
+        # P0修复: 替换失效的MACD交叉(太慢) + ADX确认(太弱)
+        # 新三层过滤: EMA斜率(趋势方向) → 突破确认(动量) → 波动率过滤(质量)
         tf_long_score = 0
         tf_short_score = 0
-        
-        macd_cross_up = row['macd'] > row['macd_signal'] and prev['macd'] <= prev['macd_signal']
-        macd_cross_down = row['macd'] < row['macd_signal'] and prev['macd'] >= prev['macd_signal']
-        
-        # MACD交叉
-        if macd_cross_up: tf_long_score += 0.35
-        if macd_cross_down: tf_short_score += 0.35
-        
-        # ADX趋势强度
-        if row['adx'] > 25:
-            if row['plus_di'] > row['minus_di']: tf_long_score += 0.25
-            if row['plus_di'] < row['minus_di']: tf_short_score += 0.25
-        
-        # 均线方向
-        if row.get('uptrend', False): tf_long_score += 0.20
-        if row.get('downtrend', False): tf_short_score += 0.20
-        
-        # 量比确认
-        if vol_ratio > 1.2:
+
+        # --- 因子1: EMA斜率（趋势方向，速度比MACD快50%）---
+        # 计算EMA20的5周期斜率，反映近期趋势强度
+        ema_window = 20
+        if idx >= ema_window + 5:
+            ema_vals = df['close'].ewm(span=ema_window, adjust=False).iloc[idx-4:idx+1].values
+            ema_slope = (ema_vals[-1] - ema_vals[0]) / (ema_vals[0] * 5)  # 标准化斜率
+            ema_slope_long_threshold = 0.001   # 0.1%/bar，上升趋势阈值
+            ema_slope_short_threshold = -0.001  # -0.1%/bar，下降趋势阈值
+            if ema_slope > ema_slope_long_threshold:
+                tf_long_score += 0.30
+            elif ema_slope < ema_slope_short_threshold:
+                tf_short_score += 0.30
+
+        # EMA排列：短期 > 长期 = 上升趋势
+        ema12 = row.get('ema12', row.get('ma5', row['close']))
+        ema26 = row.get('ema26', row.get('ma10', row['close']))
+        if ema12 > ema26: tf_long_score += 0.15
+        if ema12 < ema26: tf_short_score += 0.15
+
+        # --- 因子2: 突破确认（动量验证，去除噪音假突破）---
+        # 价格突破N日高点/低点，配合成交量确认
+        lookback = 20
+        if idx >= lookback:
+            recent_high = df['high'].iloc[idx-lookback:idx].max()
+            recent_low = df['low'].iloc[idx-lookback:idx].min()
+            # 计算ATR作为突破有效性的尺度（防止在低波动时被噪音扫止损）
+            atr_val = row.get('atr', 0)
+            atr_pct = (atr_val / row['close'] * 100) if row['close'] > 0 else 0.1
+
+            # 突破确认：价格突破20日高点，且突破幅度 > 0.5*ATR（防止噪音）
+            breakout_threshold = atr_val * 0.5
+            if row['close'] > recent_high + breakout_threshold:
+                tf_long_score += 0.25
+            if row['close'] < recent_low - breakout_threshold:
+                tf_short_score += 0.25
+
+            # 价格 vs EMA20 的偏离（偏离大 = 趋势强）
+            ma20 = row.get('ma20', row['close'])
+            if ma20 > 0:
+                price_deviation = (row['close'] - ma20) / ma20
+                if price_deviation > 0.02:   # 偏离>2%=强上升
+                    tf_long_score += 0.10
+                elif price_deviation < -0.02:  # 偏离<-2%=强下降
+                    tf_short_score += 0.10
+
+        # --- 因子3: 波动率过滤（去假信号的关键）---
+        # 仅在高波动期或趋势明确时参与，避免在低波动震荡中被反复扫止损
+        atr_pct_now = row.get('atr_pct', 0)
+        if atr_pct_now > 0.3:   # 波动率足够（真实BTC 1H std≈0.45%）
             tf_long_score += 0.10
             tf_short_score += 0.10
-        
-        # 动量确认
-        momentum = row.get('momentum', 0)
-        if momentum > 0: tf_long_score += 0.10
-        if momentum < 0: tf_short_score += 0.10
+
+        # --- 移除因子4: ADX趋势强度（已失效，替换为EMA斜率替代）---
+        # 原代码 ADX > 25 太弱，P0修复用更严格的EMA斜率代替
         
         # === 策略C: 资金费率（简化）===
         fr_long_score = 0

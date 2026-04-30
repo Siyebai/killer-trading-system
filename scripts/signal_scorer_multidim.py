@@ -40,7 +40,7 @@ class MultiDimSignalScorer:
     def __init__(self, config: Dict = None):
         self.version = "v5.2"
         default_config = {
-            'signal_threshold': 0.20,
+            'signal_threshold': 0.55,  # P0修复: 0.20→0.55，过滤低质量信号
             'trend_direction_weight': 1.5,    # 顺势加权
             'counter_trend_weight': 0.3,      # 逆势衰减
             'volume_high_threshold': 1.5,      # 高量阈值
