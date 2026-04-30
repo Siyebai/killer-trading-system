@@ -1,0 +1,28 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+
+# Large data files (use scripts/data_fetcher.py to download)
+data/*.json
+
+# Test outputs and logs
+*.log
+*.json
+!config/*.yaml
+!references/*.md
+!data/README.md
+
+# OS
+.DS_Store
+.DS_Store?
+*.swp
+*.swo
+
+# Bayeval artifacts
+cache/
+tmp/
+eval/
+__pypackages__/

@@ -523,6 +523,7 @@ class ClosedLoopEngine:
         row = df.iloc[idx]
         prev = df.iloc[idx-1]
         weights = self.adaptive_weights.get_weights()
+        hurst = 0.5  # 预声明，避免UnboundLocalError (P4-fix)
         
         # === 策略A: 均值回归（评分制）===
         mr_long_score = 0
@@ -561,7 +562,7 @@ class ClosedLoopEngine:
         # 计算EMA20的5周期斜率，反映近期趋势强度
         ema_window = 20
         if idx >= ema_window + 5:
-            ema_vals = df['close'].ewm(span=ema_window, adjust=False).iloc[idx-4:idx+1].values
+            ema_vals = df['close'].ewm(span=ema_window, adjust=False).mean().iloc[idx-4:idx+1].values
             ema_slope = (ema_vals[-1] - ema_vals[0]) / (ema_vals[0] * 5)  # 标准化斜率
             ema_slope_long_threshold = 0.001   # 0.1%/bar，上升趋势阈值
             ema_slope_short_threshold = -0.001  # -0.1%/bar，下降趋势阈值
@@ -625,26 +626,43 @@ class ClosedLoopEngine:
         if row['rsi'] > 75 and vol_ratio > 2.0: fr_short_score += 0.50
         elif row['rsi'] < 25 and vol_ratio > 2.0: fr_long_score += 0.50
         
-        # === Hurst方向加权（已修正）===
-        # P3-1修复: 趋势市→增强趋势策略(tf_boost=1.3)，削弱均值回归(mr_boost=0.7)
-        # 原错误: 趋势市反而削弱趋势策略，导致498笔逆势亏损
+        # === Hurst + ADX 双维度市场状态判断（P4新增）===
+        # Hurst: 历史数据特征；ADX: 当前趋势强度。两者结合更准确
         hurst = row.get('hurst', 0.5)
-        if hurst < 0.45:  # 均值回归市场
-            mr_boost, tf_boost = 1.3, 0.7
-        elif hurst > 0.55:  # 趋势市场 — 增强趋势策略
-            mr_boost, tf_boost = 0.7, 1.3
+        adx = row.get('adx', 25)
+        
+        if adx > 30:
+            # 强趋势市场: 抑制均值回归，增强趋势/突破
+            mr_boost, tf_boost = 0.5, 1.4
+            signal_boost = 0.05  # 提高阈值过滤噪音
+        elif adx > 25:
+            # 趋势市场: Hurst主导，但ADX确认时增强趋势
+            if hurst > 0.55: mr_boost, tf_boost = 0.7, 1.3
+            elif hurst < 0.45: mr_boost, tf_boost = 1.0, 1.0
+            else: mr_boost, tf_boost = 0.8, 1.1
+            signal_boost = 0.03
+        elif adx < 20:
+            # 震荡市场: 增强均值回归，抑制趋势
+            if hurst < 0.45: mr_boost, tf_boost = 1.4, 0.6  # 双重确认震荡
+            elif hurst > 0.55: mr_boost, tf_boost = 1.1, 0.9
+            else: mr_boost, tf_boost = 1.2, 0.8
+            signal_boost = -0.05  # 降低阈值，捕捉更多机会
         else:
-            mr_boost, tf_boost = 1.0, 1.0
+            # 中性市场: Hurst主导
+            if hurst < 0.45: mr_boost, tf_boost = 1.3, 0.7
+            elif hurst > 0.55: mr_boost, tf_boost = 0.7, 1.3
+            else: mr_boost, tf_boost = 1.0, 1.0
+            signal_boost = 0.0
         
         # P3-3新增: SOL/BNB纯突破策略 — 专为强趋势币种设计（替代失效的MACD交叉）
         # 触发条件: 价格突破N根K线内高/低点，且RSI处于极端区域
         breakout_long_score = 0
         breakout_short_score = 0
         lookback = 20
-        if i >= lookback:
-            recent_high = df['high'].iloc[i-lookback:i].max()
-            recent_low = df['low'].iloc[i-lookback:i].min()
-            atr_now = row.get('atr', df['close'].iloc[i] * 0.005)
+        if idx >= lookback:  # [P4-fix] i→idx
+            recent_high = df['high'].iloc[idx-lookback:idx].max()
+            recent_low = df['low'].iloc[idx-lookback:idx].min()
+            atr_now = row.get('atr', df['close'].iloc[idx] * 0.005)
             # 宽松突破: 0.3×ATR（原trend策略要求0.5×ATR）
             if row['close'] > recent_high + 0.3 * atr_now and row['rsi'] > 60:
                 breakout_long_score = 0.55
@@ -666,14 +684,16 @@ class ClosedLoopEngine:
             fr_short_score * w.get('funding_rate', 0.25)
         )
         
-        # P3-1修复: 信号阈值反向（趋势市→更严格过滤噪音；均值回归市→放宽产生更多信号）
-        # 原错误: 趋势市用0.30导致大量噪音信号，均值回归市用0.25过于保守
-        if hurst > 0.55:  # 趋势市场，信号少但准
-            signal_threshold = 0.50
-        elif hurst < 0.45:  # 均值回归市场，多信号
-            signal_threshold = 0.35
+        # P4新增: Hurst+ADX双维度阈值调整
+        # 基础阈值 + Hurst调整 + ADX状态调整
+        base_thresh = 0.52
+        if hurst > 0.55:  # Hurst趋势市场
+            hurst_adj = 0.03
+        elif hurst < 0.45:  # Hurst均值回归市场
+            hurst_adj = -0.02
         else:
-            signal_threshold = 0.42  # 中性市场，平衡信号数量和质量
+            hurst_adj = 0.0
+        signal_threshold = base_thresh + hurst_adj + signal_boost
         
         if long_signal > short_signal and long_signal >= signal_threshold:
             # 信号方向优势检查：至少比反向信号强20%

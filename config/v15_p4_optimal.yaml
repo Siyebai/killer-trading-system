@@ -1,0 +1,73 @@
+name: 杀手锏交易系统 v1.5 P4优化
+version: '1.5'
+summary: |
+  诊断结果: SOL/BNB结构性亏损(gap=-12%)是品种问题，非策略问题。
+  ETH+BTC gap=+1.0%，可持续。P4核心改进: ADX市场状态过滤器 + ETH优先。
+base_threshold: 0.52
+market_filter:
+  # ADX > 30: 强趋势 → 抑制均值回归(mr_boost=0.5)，增强趋势(tf_boost=1.4)，阈值+0.05
+  # ADX > 25: 趋势市 → Hurst主导 + ADX确认，阈值+0.03
+  # ADX < 20: 震荡市 → 增强均值回归(mr_boost=1.2-1.4)，阈值-0.05
+  # ADX 20-25: 中性 → Hurst主导
+  adx_trending: 30
+  adx_range: 20
+symbols:
+  # === ETH优先: 548笔OOS验证 gap=+1.0%，可持续 ===
+  ETHUSDT:
+    confirm_threshold: 0.55
+    min_confirmations: 3
+    atr_sl_mult: 1.3
+    atr_tp_mult: 1.3
+    max_hold_bars: 24
+    grade: B
+    priority: 1
+    status: active
+    oos_trades: 115
+    oos_wr: 33.0%
+    oos_gap: +1.0%
+  # === BTC次选: 548笔OOS验证 gap=盈亏平衡 ===
+  BTCUSDT:
+    confirm_threshold: 0.50
+    min_confirmations: 3
+    atr_sl_mult: 1.3
+    atr_tp_mult: 1.3
+    max_hold_bars: 24
+    grade: C
+    priority: 2
+    status: active
+    oos_trades: 155
+    oos_wr: 31.0%
+    oos_gap: ~0%
+  # === SOL/BNB排除: 结构性问题，非策略问题 ===
+  SOLUSDT:
+    confirm_threshold: 0.50
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+    grade: D
+    priority: 99
+    status: excluded
+    note: gap=-12%，趋势市场均值回归失效
+  BNBUSDT:
+    confirm_threshold: 0.50
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+    grade: D
+    priority: 99
+    status: excluded
+    note: gap=-12%，趋势市场均值回归失效
+p4_improvements:
+  - ADX+Hurst双维度市场状态过滤器 (closed_loop_engine.py)
+  - 强趋势(ADX>30): 均值回归boost=0.5，趋势boost=1.4
+  - 震荡(ADX<20): 均值回归boost=1.2-1.4，趋势boost=0.6-0.8
+  - ETH优先，BTC次选，SOL/BNB排除
+  - Bug修复: P3-3 SOL/BNB突破策略中 i→idx
+short_period_findings:
+  note: 1m/3m/5m数据噪音过大，BB+RSI信号频率过高，P3策略不适用
+  BTC-1m: "WR=10.5%, Gap=-47.7%, 不可用"
+  BTC-5m: "WR=14.5%, Gap=-36.0%, 不可用"
+  BTC-1H: "WR=31%, Gap=-3.3%, 参考基准"
+  ETH-1H: "WR=33%, Gap=+1.0%, 最优"

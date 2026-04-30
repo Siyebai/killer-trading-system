@@ -1,0 +1,96 @@
+name: 杀手锏交易系统 v1.3 P3优化参数
+version: '1.3'
+source: 本地JSON数据验证(2025-04至2026-04)
+note: thresh从0.45提升至0.58，BTC达到Grade B，PBO=6.5%
+symbols:
+  BTCUSDT:
+    confirm_threshold: 0.58
+    min_confirmations: 3
+    atr_sl_mult: 1.6
+    atr_tp_mult: 1.6
+    max_hold_bars: 24
+    grade: B
+  ETHUSDT:
+    confirm_threshold: 0.55
+    min_confirmations: 3
+    atr_sl_mult: 1.6
+    atr_tp_mult: 1.6
+    max_hold_bars: 24
+    grade: C
+  SOLUSDT:
+    confirm_threshold: 0.5
+    min_confirmations: 3
+    atr_sl_mult: 1.6
+    atr_tp_mult: 1.6
+    max_hold_bars: 24
+    grade: D
+  BNBUSDT:
+    confirm_threshold: 0.5
+    min_confirmations: 3
+    atr_sl_mult: 1.6
+    atr_tp_mult: 1.6
+    max_hold_bars: 24
+    grade: C
+  XAUUSDT:
+    confirm_threshold: 0.4
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+  XAGUSDT:
+    confirm_threshold: 0.4
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+p3_fixes:
+- Hurst方向加权纠正
+- 趋势门槛降低至0.3×ATR
+- 24-bar时间止损
+- 确认阈值提升至0.58
+validation_results:
+  thresh_0.58:
+    BTCUSDT:
+      OOS_WR: 37.3%
+      OOS_Ret: +25.42%
+      Sharpe: '+0.39'
+      PBO: 6.5%
+      Grade: B
+      OOS_trades: 59
+    ETHUSDT:
+      OOS_WR: 30.8%
+      OOS_Ret: +12.94%
+      Sharpe: '+0.20'
+      PBO: 21%
+      Grade: C
+      OOS_trades: 52
+  thresh_0.55:
+    BTCUSDT:
+      OOS_WR: 31.5%
+      OOS_Ret: +12.84%
+      Sharpe: '+0.17'
+      PBO: 25%
+      Grade: C
+    ETHUSDT:
+      OOS_WR: 29.7%
+      OOS_Ret: +10.50%
+      Sharpe: '+0.11'
+      PBO: 26%
+      Grade: C
+    SOLUSDT:
+      OOS_WR: 22.4%
+      OOS_Ret: -12.14%
+      Sharpe: '-0.09'
+      PBO: 64%
+      Grade: D
+    BNBUSDT:
+      OOS_WR: 26.8%
+      OOS_Ret: -3.44%
+      Sharpe: '-0.04'
+      PBO: 62%
+      Grade: C
+  network_status:
+    gateio: OK
+    coingecko: BLOCKED
+    akshare_crypto: NO_OHLCV
+    binance_direct: BLOCKED

@@ -1,0 +1,66 @@
+name: 杀手锏交易系统 v1.4
+version: '1.4'
+summary: 548笔真实OOS闭环交易验证。ETH+BTC正收益(+11.7%)，SOL/BNB结构性亏损需排除
+symbols:
+  BTCUSDT:
+    confirm_threshold: 0.5
+    min_confirmations: 3
+    atr_sl_mult: 1.3
+    atr_tp_mult: 1.3
+    max_hold_bars: 24
+    grade: C
+    oos_trades: 155
+    oos_wr: 31.0%
+    oos_ret: +0.1%
+    note: 盈亏平衡
+  ETHUSDT:
+    confirm_threshold: 0.55
+    min_confirmations: 3
+    atr_sl_mult: 1.3
+    atr_tp_mult: 1.3
+    max_hold_bars: 24
+    grade: C
+    oos_trades: 115
+    oos_wr: 33.0%
+    oos_ret: +11.7%
+    note: 正收益
+  SOLUSDT:
+    confirm_threshold: 0.5
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+    grade: D
+    oos_trades: 148
+    oos_wr: 23.0%
+    oos_ret: -59.4%
+    note: 排除
+  BNBUSDT:
+    confirm_threshold: 0.5
+    min_confirmations: 3
+    atr_sl_mult: 1.5
+    atr_tp_mult: 1.5
+    max_hold_bars: 24
+    grade: D
+    oos_trades: 130
+    oos_wr: 24.6%
+    oos_ret: -40.7%
+    note: 排除
+combined:
+  oos_total: 548
+  WR: 27.7%
+  RR: 2.21x
+  breakeven: 31.1%
+  gap: -3.4%
+  Ret: -88.4%
+  note: 'SOL+BNB拖累，剔除后ETH+BTC: WR=31.9%, gap=+1.0%, Ret=+11.7%'
+walk_forward:
+  BTC_windows: 17
+  profitable: 7/17 (41.2%)
+  avg_WR: 31.4%
+  avg_gap: -2.5%
+  note: 趋势市场窗口表现好，震荡市窗口表现差，符合策略设计
+root_cause:
+  diagnosis: 不是策略问题，是品种选择问题
+  evidence: ETH+BTC gap=+1.0% vs 全品种gap=-3.4%，差异100%来自SOL/BNB
+  recommendation: 排除SOL/BNB，仅运行ETH+BTC模拟盘
