@@ -108,92 +108,81 @@ class FuturesDataFetcher:
             logger.error("requests库未安装")
             return None
 
-        # 解析品种配置
-        config = FUTURES_CONFIG.get(symbol)
-        if config:
-            secid = f"{config['market']}.{config['code']}"
-        elif '.' in symbol:
-            secid = symbol
-        else:
-            logger.error(f"未知品种: {symbol}")
+        secid = self._resolve_secid(symbol)
+        if secid is None:
             return None
 
-        period_map = {'1d': '101', '1h': '60', '4h': '101', '15m': '15', '5m': '5'}
-        klt = period_map.get(period, '101')
-
+        klt = {'1d': '101', '1h': '60', '4h': '101', '15m': '15', '5m': '5'}.get(period, '101')
         params = {
             'secid': secid,
             'fields1': 'f1,f2,f3,f4,f5,f6',
             'fields2': 'f51,f52,f53,f54,f55,f56,f57,f58',
-            'klt': klt,
-            'fqt': '0',
-            'end': '20500101',
-            'lmt': str(count)
+            'klt': klt, 'fqt': '0', 'end': '20500101', 'lmt': str(count)
         }
 
-        max_retries = 3
-        for attempt in range(max_retries):
+        for attempt in range(3):
             try:
                 resp = requests.get(self.base_url, params=params, headers=self.headers, timeout=60)
-                data = resp.json()
-
-            if not data.get('data') or not data['data'].get('klines'):
-                logger.warning(f"无数据返回: {symbol} (attempt {attempt+1}/{max_retries})")
-                if attempt < max_retries - 1:
-                    time.sleep(2 * (attempt + 1))
-                    continue
-                return None
-
-            records = []
-            for kline in data['data']['klines']:
-                parts = kline.split(',')
-                if len(parts) >= 6:
-                    try:
-                        o = float(parts[1])
-                        c = float(parts[2])
-                        h = float(parts[3])
-                        l = float(parts[4])
-                        v = float(parts[5])
-
-                        if 0 < c < 100000 and h >= l and o > 0:
-                            records.append({
-                                'timestamp': pd.to_datetime(parts[0]),
-                                'open': o, 'close': c,
-                                'high': h, 'low': l,
-                                'volume': v
-                            })
-                    except (ValueError, IndexError):
-                        continue
-
-            if not records:
-                return None
-
-            df = pd.DataFrame(records)
-            df.set_index('timestamp', inplace=True)
-
-            # 数据质量检查
-            if len(df) < 50:
-                logger.warning(f"数据不足50条: {symbol}({len(df)}条)")
-                return None
-
-            logger.info(f"[OK] {symbol}: {len(df)}条数据, "
-                       f"{df.index[0]} ~ {df.index[-1]}, "
-                       f"价格范围 {df['close'].min():.2f} ~ {df['close'].max():.2f}")
-            return df
-
-        except requests.exceptions.Timeout:
-            logger.warning(f"请求超时: {symbol} (attempt {attempt+1}/{max_retries})")
-            if attempt < max_retries - 1:
-                time.sleep(2 * (attempt + 1))
-                continue
+                return self._process_response(resp.json(), symbol)
+            except requests.exceptions.Timeout:
+                logger.warning(f"请求超时: {symbol} (attempt {attempt+1}/3)")
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1)); continue
+            except Exception as e:
+                logger.warning(f"数据获取失败: {symbol} - {e} (attempt {attempt+1}/3)")
+                if attempt < 2:
+                    time.sleep(2 * (attempt + 1)); continue
+                logger.error(f"数据获取最终失败: {symbol}")
             return None
-        except Exception as e:
-            logger.warning(f"数据获取失败: {symbol} - {e} (attempt {attempt+1}/{max_retries})")
-            if attempt < max_retries - 1:
-                time.sleep(2 * (attempt + 1))
-                continue
-            logger.error(f"数据获取最终失败: {symbol} - 重试{max_retries}次后仍失败")
+        return None
+
+    def _resolve_secid(self, symbol: str) -> Optional[str]:
+        """解析品种代码为secid格式"""
+        config = FUTURES_CONFIG.get(symbol)
+        if config:
+            return f"{config['market']}.{config['code']}"
+        if '.' in symbol:
+            return symbol
+        logger.error(f"未知品种: {symbol}")
+        return None
+
+    def _process_response(self, data: Dict, symbol: str) -> Optional[pd.DataFrame]:
+        """解析API响应并构建DataFrame"""
+        if not data.get('data') or not data['data'].get('klines'):
+            logger.warning(f"无数据返回: {symbol}")
             return None
+
+        records = []
+        for kline in data['data']['klines']:
+            rec = self._parse_kline(kline)
+            if rec:
+                records.append(rec)
+
+        if not records:
+            return None
+
+        df = pd.DataFrame(records)
+        df.set_index('timestamp', inplace=True)
+        if len(df) < 50:
+            logger.warning(f"数据不足50条: {symbol}({len(df)}条)")
+            return None
+
+        logger.info(f"[OK] {symbol}: {len(df)}条数据, {df.index[0]} ~ {df.index[-1]}, "
+                     f"价格范围 {df['close'].min():.2f} ~ {df['close'].max():.2f}")
+        return df
+
+    def _parse_kline(self, kline: str) -> Optional[Dict]:
+        """解析单条K线数据"""
+        try:
+            parts = kline.split(',')
+            if len(parts) < 6:
+                return None
+            o, c, h, l, v = float(parts[1]), float(parts[2]), float(parts[3]), float(parts[4]), float(parts[5])
+            if 0 < c < 100000 and h >= l and o > 0:
+                return {'timestamp': pd.to_datetime(parts[0]), 'open': o, 'close': c, 'high': h, 'low': l, 'volume': v}
+        except (ValueError, IndexError):
+            pass
+        return None
 
     def fetch_multiple(self, symbols: List[str] = None, period: str = '1d', count: int = 500) -> Dict[str, pd.DataFrame]:
         """批量获取多品种数据"""

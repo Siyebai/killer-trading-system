@@ -49,8 +49,15 @@ class EventBus:
     STANDARD_EVENT_TYPES = {
         # 系统状态事件
         "state.changed": "系统状态变更",
+        "state.recovery_started": "系统恢复开始",
+        "state.recovery_completed": "系统恢复完成",
         "health.degraded": "系统健康降级",
         "health.recovered": "系统健康恢复",
+
+        # 系统故障事件
+        "system.component_failure": "组件故障检测",
+        "system.latency_high": "组件延迟过高",
+        "system.resource_critical": "系统资源告急",
 
         # 市场数据事件
         "market.scan_completed": "市场扫描完成",
@@ -95,7 +102,26 @@ class EventBus:
 
         # 配置事件
         "config.reloaded": "配置重新加载",
-        "config.changed": "配置变更"
+        "config.changed": "配置变更",
+
+        # 优化事件
+        "optimization.started": "参数优化开始",
+        "optimization.completed": "参数优化完成",
+        "optimization.failed": "参数优化失败",
+
+        # 组合优化事件
+        "hrp.weights_computed": "HRP权重计算完成",
+        "erc.weights_computed": "ERC权重计算完成",
+        "backtest.started": "回测开始",
+        "backtest.completed": "回测完成",
+
+        # 元学习事件
+        "meta.update_completed": "元学习参数更新完成",
+        "meta.adaptation_completed": "策略快速适应完成",
+
+        # 过拟合检测事件
+        "overfitting.detected": "过拟合检测完成",
+        "overfitting.safe": "过拟合检测通过"
     }
 
     def __init__(self, enable_history: bool = True, max_history: int = 1000):
@@ -197,11 +223,9 @@ class EventBus:
                 logger.error("发布失败: 事件类型为空")
                 return None
 
-            if payload is None:
-                payload = {}
-
-            if not isinstance(payload, dict):
-                logger.error("发布失败: payload必须是字典类型")
+            # 允许None payload通过，其他类型必须为dict
+            if payload is not None and not isinstance(payload, dict):
+                logger.error("发布失败: payload必须是字典类型或None")
                 return None
 
             # 验证事件类型是否标准（仅警告）
@@ -314,7 +338,7 @@ class EventBus:
             logger.error(f"获取统计信息异常: {e}")
             return {}
 
-    def clear_history(self):
+    def clear_history(self) -> None:
         """清空历史记录"""
         try:
             with self._lock:
@@ -369,7 +393,7 @@ def get_event_bus() -> EventBus:
         raise
 
 
-def reset_event_bus():
+def reset_event_bus() -> None:
     """重置全局事件总线（主要用于测试）"""
     global _global_event_bus
     _global_event_bus = None

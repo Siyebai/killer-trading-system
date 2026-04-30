@@ -54,7 +54,7 @@ class CompactFormatter(logging.Formatter):
 
 
 _LOGGERS: Dict[str, logging.Logger] = {}
-_DEFAULT_LEVEL = os.environ.get("KILLER_LOG_LEVEL", "INFO").upper()
+_default_level = os.environ.get("KILLER_LOG_LEVEL", "INFO").upper()
 
 
 def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
@@ -76,7 +76,7 @@ def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
         return _LOGGERS[name]
 
     logger = logging.getLogger(f"killer.{name}")
-    effective_level = (level or _DEFAULT_LEVEL).upper()
+    effective_level = (level or _default_level).upper()
     logger.setLevel(getattr(logging, effective_level, logging.INFO))
     logger.propagate = False
 
@@ -105,7 +105,7 @@ def get_log_stats() -> Dict[str, str]:
     """获取当前日志配置状态(用于健康检查)"""
     return {
         "registered_loggers": list(_LOGGERS.keys()),
-        "default_level": _DEFAULT_LEVEL,
+        "default_level": _default_level,
         "format": os.environ.get("KILLER_LOG_FMT", "compact"),
     }
 

@@ -355,7 +355,7 @@ class EnhancedStrategyEngine:
 
                 # 动态调整权重（基于历史表现）
                 expected_return = strategy.get_expected_return()
-                if expected_return != 0:
+                if abs(expected_return) > 1e-8:
                     new_weight = strategy.weight * (1 + min(0.3, max(-0.3, expected_return * 0.01)))
                     strategy.weight = max(0.05, min(0.8, new_weight))
                 break

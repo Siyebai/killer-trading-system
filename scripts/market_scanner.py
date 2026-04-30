@@ -313,7 +313,7 @@ class OpportunityDetector:
             avg_gain = (avg_gain * (period - 1) + gain[i - 1]) / period
             avg_loss = (avg_loss * (period - 1) + loss[i - 1]) / period
 
-            if avg_loss == 0:
+            if abs(avg_loss) < 1e-10:
                 rsi[i] = 100
             else:
                 rs = avg_gain / avg_loss

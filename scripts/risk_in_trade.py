@@ -55,7 +55,7 @@ class TrailingStopRule(RiskRule):
         side = context.get('side', 'BUY')
         trailing_stop_price = context.get('trailing_stop_price', None)
 
-        if entry_price == 0 or current_price == 0:
+        if abs(entry_price) < 1e-8 or abs(current_price) < 1e-8:
             return True, ""
 
         # 计算当前盈利百分比
@@ -117,7 +117,7 @@ class TimeStopRule(RiskRule):
         entry_price = context.get('entry_price', 0)
         current_price = context.get('current_price', 0)
 
-        if entry_time == 0 or entry_price == 0:
+        if entry_time == 0 or abs(entry_price) < 1e-8:
             return True, ""
 
         now = time.time()
@@ -169,7 +169,7 @@ class VolatilityBreakerRule(RiskRule):
 
         current_price = context.get('current_price', 0)
 
-        if current_price == 0:
+        if abs(current_price) < 1e-8:
             return True, ""
 
         # 添加到历史
@@ -220,7 +220,7 @@ class ExtremePriceMoveRule(RiskRule):
 
         current_price = context.get('current_price', 0)
 
-        if current_price == 0 or self._last_price == 0:
+        if abs(current_price) < 1e-8 or abs(self._last_price) < 1e-8:
             self._last_price = current_price
             return True, ""
 
@@ -266,7 +266,7 @@ class GapRiskRule(RiskRule):
         current_price = context.get('current_price', 0)
         previous_close = context.get('previous_close_price', self._last_close_price)
 
-        if current_price == 0 or previous_close == 0:
+        if abs(current_price) < 1e-8 or abs(previous_close) < 1e-8:
             self._last_close_price = current_price
             return True, ""
 
@@ -312,7 +312,7 @@ class AdverseSelectionRule(RiskRule):
         expected_price = context.get('expected_price', entry_price)
         side = context.get('side', 'BUY')
 
-        if entry_price == 0 or expected_price == 0:
+        if abs(entry_price) < 1e-8 or abs(expected_price) < 1e-8:
             return True, ""
 
         # 计算不利滑点
@@ -322,7 +322,7 @@ class AdverseSelectionRule(RiskRule):
             slippage_pct = (expected_price - entry_price) / expected_price
 
         # 只考虑不利滑点（正数）
-        adverse_slippage = max(0, slippage)
+        adverse_slippage = max(0, slippage_pct)
 
         if adverse_slippage > self.max_slippage:
             self.record_violation(f"不利滑点{adverse_slippage:.2%}超过阈值{self.max_slippage:.2%}")

@@ -107,7 +107,7 @@ class GlobalState:
         return cls._instance
     
     @classmethod
-    def reset(cls):
+    def reset(cls) -> None:
         """重置单例（仅用于测试）"""
         cls._instance = None
     
@@ -914,7 +914,7 @@ class GlobalController:
             'dispatcher_status': self.dispatcher.get_status() if self.dispatcher else None
         }
     
-    def print_status(self):
+    def print_status(self) -> None:
         """打印系统状态"""
         status = self.get_status()
         sm = status['state_matrix']

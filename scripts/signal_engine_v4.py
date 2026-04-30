@@ -15,6 +15,7 @@
 4. EMA200 趋势方向做同向均值回归（不逆势）
 """
 import numpy as np
+from typing import Tuple
 
 
 def ema_val(arr, period):
@@ -64,6 +65,40 @@ def pct_change_n(closes, n):
     return (closes[-1] - closes[-n-1]) / closes[-n-1] * 100
 
 
+def _signal_A(closes, rsi14: float) -> Tuple[bool, bool, float]:
+    """信号A: RSI极端反转"""
+    if rsi14 <= 28:
+        return True, False, (30 - rsi14) / 30
+    elif rsi14 >= 72:
+        return False, True, (rsi14 - 70) / 30
+    return False, False, 0.0
+
+def _signal_B(cur: float, prev: float, bb_pos: float, bb_lower: float, bb_upper: float, bb_std: float) -> Tuple[bool, bool, float]:
+    """信号B: 布林带突破反转"""
+    sig_long, sig_short, strength = False, False, 0.0
+    if bb_pos <= 0.05 and prev < bb_lower:
+        sig_long = True; strength = min((bb_lower - cur) / bb_std, 1.5) / 1.5
+    elif bb_pos >= 0.95 and prev > bb_upper:
+        sig_short = True; strength = min((cur - bb_upper) / bb_std, 1.5) / 1.5
+    if not sig_long and bb_pos <= 0.08:
+        sig_long = True; strength = max(strength, 0.4)
+    if not sig_short and bb_pos >= 0.92:
+        sig_short = True; strength = max(strength, 0.4)
+    return sig_long, sig_short, strength
+
+def _signal_C(ret3: float, ret6: float, atr_pct: float) -> Tuple[bool, bool, float]:
+    """信号C: 短期超涨超跌"""
+    sig_long, sig_short, strength = False, False, 0.0
+    if ret3 < -atr_pct * 1.2:
+        sig_long = True; strength = min(abs(ret3) / (atr_pct * 2), 1.0)
+    elif ret3 > atr_pct * 1.2:
+        sig_short = True; strength = min(ret3 / (atr_pct * 2), 1.0)
+    if not sig_long and ret6 < -atr_pct * 1.8:
+        sig_long = True; strength = max(strength, min(abs(ret6) / (atr_pct * 3), 0.8))
+    if not sig_short and ret6 > atr_pct * 1.8:
+        sig_short = True; strength = max(strength, min(ret6 / (atr_pct * 3), 0.8))
+    return sig_long, sig_short, strength
+
 def generate_signal_v4(closes, highs, lows, opens, volumes, min_bars=50):
     """
     信号生成 v4.0 — 统计套利 + 均值回归
@@ -93,7 +128,7 @@ def generate_signal_v4(closes, highs, lows, opens, volumes, min_bars=50):
     if bb_range < 1e-9:   # [FIX] 零方差保护，横盘市场直接返回NEUTRAL
         return {'direction': 'NEUTRAL', 'confidence': 0,
                 'reason': 'bb_range_zero(flat_market)', 'market': 'NEUTRAL_MKT'}
-    bb_pos   = (cur - bb_lower) / bb_range
+    bb_pos = (cur - bb_lower) / bb_range
 
     # 短期动量
     ret3  = pct_change_n(closes, 3)
@@ -104,109 +139,39 @@ def generate_signal_v4(closes, highs, lows, opens, volumes, min_bars=50):
     vol_ma    = float(np.mean(volumes[-20:])) if n >= 20 else float(volumes[-1])
     vol_ratio = volumes[-1] / vol_ma if vol_ma > 0 else 1
 
-    # EMA200 趋势背景（200根不够就用50根）
+    # EMA200 趋势背景
     ema_period = min(200, n-1)
     ema200 = ema_val(closes[max(0,n-ema_period*2):], ema_period)
     ratio  = cur / ema200
     market = 'BULL' if ratio >= 1.005 else ('BEAR' if ratio <= 0.995 else 'NEUTRAL_MKT')
 
-    # ─────────────────────────────────────────
-    # 信号 A：RSI 极端反转
-    # ─────────────────────────────────────────
-    sig_A_long  = False
-    sig_A_short = False
-    A_strength  = 0
+    # 三类信号独立计算
+    sig_A_long, sig_A_short, A_str = _signal_A(closes, rsi14)
+    sig_B_long, sig_B_short, B_str = _signal_B(cur, prev, bb_pos, bb_lower, bb_upper, bb_std)
+    sig_C_long, sig_C_short, C_str = _signal_C(ret3, ret6, atr / cur * 100)
 
-    if rsi14 <= 28:
-        sig_A_long  = True
-        A_strength  = (30 - rsi14) / 30  # 越低越强
-    elif rsi14 >= 72:
-        sig_A_short = True
-        A_strength  = (rsi14 - 70) / 30
-
-    # ─────────────────────────────────────────
-    # 信号 B：布林带突破反转
-    # ─────────────────────────────────────────
-    sig_B_long  = False
-    sig_B_short = False
-    B_strength  = 0
-
-    if bb_pos <= 0.05 and prev < bb_lower:   # 价格突破下轨后首次回归
-        sig_B_long  = True
-        B_strength  = min((bb_lower - cur) / bb_std, 1.5) / 1.5
-    elif bb_pos >= 0.95 and prev > bb_upper: # 价格突破上轨后首次回归
-        sig_B_short = True
-        B_strength  = min((cur - bb_upper) / bb_std, 1.5) / 1.5
-
-    # 也允许价格在带内但极端位置
-    if not sig_B_long  and bb_pos <= 0.08:
-        sig_B_long  = True
-        B_strength  = max(B_strength, 0.4)
-    if not sig_B_short and bb_pos >= 0.92:
-        sig_B_short = True
-        B_strength  = max(B_strength, 0.4)
-
-    # ─────────────────────────────────────────
-    # 信号 C：短期超涨超跌
-    # ─────────────────────────────────────────
-    sig_C_long  = False
-    sig_C_short = False
-    C_strength  = 0
-
-    # 过去3-12根K线下跌超过 2×ATR → 超跌反弹
-    atr_pct = atr / cur * 100
-    if ret3 < -atr_pct * 1.2:
-        sig_C_long  = True
-        C_strength  = min(abs(ret3) / (atr_pct * 2), 1.0)
-    elif ret3 > atr_pct * 1.2:
-        sig_C_short = True
-        C_strength  = min(ret3 / (atr_pct * 2), 1.0)
-
-    if not sig_C_long  and ret6 < -atr_pct * 1.8:
-        sig_C_long  = True
-        C_strength  = max(C_strength, min(abs(ret6) / (atr_pct * 3), 0.8))
-    if not sig_C_short and ret6 > atr_pct * 1.8:
-        sig_C_short = True
-        C_strength  = max(C_strength, min(ret6 / (atr_pct * 3), 0.8))
-
-    # ─────────────────────────────────────────
     # 综合决策：任意 2 类信号同时触发
-    # ─────────────────────────────────────────
     long_hits  = sum([sig_A_long,  sig_B_long,  sig_C_long])
     short_hits = sum([sig_A_short, sig_B_short, sig_C_short])
 
-    long_strength  = np.mean([s for s, b in [(A_strength,sig_A_long),
-                                              (B_strength,sig_B_long),
-                                              (C_strength,sig_C_long)] if b]) if long_hits else 0
-    short_strength = np.mean([s for s, b in [(A_strength,sig_A_short),
-                                              (B_strength,sig_B_short),
-                                              (C_strength,sig_C_short)] if b]) if short_hits else 0
+    long_strength  = np.mean([s for s, b in [(A_str,sig_A_long),(B_str,sig_B_long),(C_str,sig_C_long)] if b]) if long_hits else 0
+    short_strength = np.mean([s for s, b in [(A_str,sig_A_short),(B_str,sig_B_short),(C_str,sig_C_short)] if b]) if short_hits else 0
 
-    # 趋势过滤：做多要求价格不在 EMA200 大幅下方
+    # 趋势过滤
     if market == 'BEAR' and ratio < 0.97:
-        long_hits = max(0, long_hits - 1)   # 空头市场减一票
-
+        long_hits = max(0, long_hits - 1)
     if market == 'BULL' and ratio > 1.03:
-        short_hits = max(0, short_hits - 1)  # 多头市场减一票
+        short_hits = max(0, short_hits - 1)
 
-    # 成交量确认（放量加分）
+    # 成交量确认
     vol_boost = 0.05 if vol_ratio >= 1.5 else 0
 
     def build_signal(direction, hits, strength, reasons):
         if hits < 2:
             return None
         conf = min(0.45 + hits * 0.15 + strength * 0.20 + vol_boost, 0.95)
-        return {
-            'direction': direction,
-            'confidence': conf,
-            'reason': '|'.join(reasons),
-            'market': market,
-            'hits': hits,
-            'strength': strength,
-            'rsi': rsi14,
-            'bb_pos': bb_pos,
-            'ret3': ret3
-        }
+        return {'direction': direction, 'confidence': conf, 'reason': '|'.join(reasons),
+                'market': market, 'hits': hits, 'strength': strength, 'rsi': rsi14, 'bb_pos': bb_pos, 'ret3': ret3}
 
     long_reasons  = []
     short_reasons = []
@@ -220,7 +185,6 @@ def generate_signal_v4(closes, highs, lows, opens, volumes, min_bars=50):
     long_sig  = build_signal('LONG',  long_hits,  long_strength,  long_reasons)
     short_sig = build_signal('SHORT', short_hits, short_strength, short_reasons)
 
-    # 优先选信号强的方向
     if long_sig and short_sig:
         return long_sig if long_sig['confidence'] >= short_sig['confidence'] else short_sig
     elif long_sig:

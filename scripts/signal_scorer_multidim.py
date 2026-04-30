@@ -167,100 +167,17 @@ class MultiDimSignalScorer:
 
         row = df.iloc[idx]
         prev = df.iloc[idx - 1]
-
         hurst = row.get('hurst', 0.5)
         if pd.isna(hurst):
             hurst = 0.5
 
-        # ============ LONG评分 ============
-        long_score = 0.0
-        long_reasons = []
+        # LONG / SHORT 评分
+        long_score, long_reasons = self._score_long(row, prev, hurst)
+        short_score, short_reasons = self._score_short(row, prev, hurst)
 
-        # 1. 趋势强度 (0.35)
-        if row.get('uptrend', False) and row.get('adx', 0) > self.config['adx_trend_threshold']:
-            long_score += 0.35
-            long_reasons.append('trend_up')
-
-        # 2. MACD金叉 (0.30)
-        if row.get('macd', 0) > row.get('macd_signal', 0) and prev.get('macd', 0) <= prev.get('macd_signal', 0):
-            long_score += 0.30
-            long_reasons.append('macd_golden')
-
-        # 3. 均线突破 (0.25)
-        if row.get('close', 0) > row.get('ma20', 0) and prev.get('close', 0) <= prev.get('ma20', 0):
-            long_score += 0.25
-            long_reasons.append('ma20_breakout')
-
-        # 4. RSI超卖反弹 (0.20)
-        rsi_ob = self.config['rsi_overbought']
-        rsi_os = self.config['rsi_oversold']
-        if row.get('rsi', 50) < 40 and row.get('rsi', 50) > prev.get('rsi', 50):
-            long_score += 0.20
-            long_reasons.append('rsi_oversold')
-
-        # 5. 成交量放大 (0.15)
-        if row.get('vol_ratio', 1) > self.config['volume_high_threshold']:
-            long_score += 0.15
-            long_reasons.append('volume_surge')
-
-        # 6. 动量转正 (0.15)
-        if row.get('momentum', 0) > 0 and prev.get('momentum', 0) <= 0:
-            long_score += 0.15
-            long_reasons.append('momentum_positive')
-
-        # 均值回归信号（Hurst < 0.5时有效）
-        if hurst < self.config['hurst_mean_rev_threshold']:
-            if row.get('rsi', 50) < rsi_os and row.get('close', 0) < row.get('bb_lower', 0):
-                long_score += 0.25
-                long_reasons.append('mean_rev_oversold')
-            if row.get('rsi', 50) > prev.get('rsi', 50) and row.get('rsi', 50) < rsi_os:
-                long_score += 0.10
-                long_reasons.append('rsi_bounce')
-
-        # ============ SHORT评分 ============
-        short_score = 0.0
-        short_reasons = []
-
-        # 1. 趋势强度 (0.35)
-        if row.get('downtrend', False) and row.get('adx', 0) > self.config['adx_trend_threshold']:
-            short_score += 0.35
-            short_reasons.append('trend_down')
-
-        # 2. MACD死叉 (0.30)
-        if row.get('macd', 0) < row.get('macd_signal', 0) and prev.get('macd', 0) >= prev.get('macd_signal', 0):
-            short_score += 0.30
-            short_reasons.append('macd_death')
-
-        # 3. 均线跌破 (0.25)
-        if row.get('close', 0) < row.get('ma20', 0) and prev.get('close', 0) >= prev.get('ma20', 0):
-            short_score += 0.25
-            short_reasons.append('ma20_breakdown')
-
-        # 4. RSI超买回落 (0.20)
-        if row.get('rsi', 50) > 60 and row.get('rsi', 50) < prev.get('rsi', 50):
-            short_score += 0.20
-            short_reasons.append('rsi_overbought')
-
-        # 5. 成交量放大 (0.15)
-        if row.get('vol_ratio', 1) > self.config['volume_high_threshold']:
-            short_score += 0.15
-            short_reasons.append('volume_surge')
-
-        # 6. 动量转负 (0.15)
-        if row.get('momentum', 0) < 0 and prev.get('momentum', 0) >= 0:
-            short_score += 0.15
-            short_reasons.append('momentum_negative')
-
-        # 均值回归信号
-        if hurst < self.config['hurst_mean_rev_threshold']:
-            if row.get('rsi', 50) > rsi_ob and row.get('close', 0) > row.get('bb_upper', 0):
-                short_score += 0.25
-                short_reasons.append('mean_rev_overbought')
-
-        # ============ 趋势方向加权 ============
+        # 趋势方向加权
         trend_w = self.config['trend_direction_weight']
         counter_w = self.config['counter_trend_weight']
-
         if row.get('uptrend', False):
             long_score *= trend_w
             short_score *= counter_w
@@ -268,16 +185,13 @@ class MultiDimSignalScorer:
             short_score *= trend_w
             long_score *= counter_w
 
-        # ============ 量比过滤 ============
-        vol_ratio = row.get('vol_ratio', 1)
+        # 量比过滤：高量时抑制均值回归信号
+        vol_ratio = row.get('vol_ratio', 1.0)
         if pd.isna(vol_ratio):
             vol_ratio = 1.0
         high_volume = vol_ratio > self.config['volume_high_threshold']
-
-        # 高量时不做均值回归（只保留趋势信号）
         if high_volume:
-            mean_rev_reasons = ['mean_rev_oversold', 'mean_rev_overbought', 'rsi_bounce']
-            for reason in mean_rev_reasons:
+            for reason in ['mean_rev_oversold', 'mean_rev_overbought', 'rsi_bounce']:
                 if reason in long_reasons:
                     long_score -= 0.25
                     long_reasons.remove(reason)
@@ -285,10 +199,9 @@ class MultiDimSignalScorer:
                     short_score -= 0.25
                     short_reasons.remove(reason)
 
-        # ============ 生成最终信号 ============
+        # 生成最终信号
         threshold = self.config['signal_threshold']
         signal = 0
-
         if long_score > short_score and long_score >= threshold:
             signal = 1
         elif short_score > long_score and short_score >= threshold:
@@ -302,8 +215,56 @@ class MultiDimSignalScorer:
             'hurst': round(hurst, 4),
             'is_mean_rev': hurst < self.config['hurst_mean_rev_threshold'],
             'is_high_volume': high_volume,
-            'confidence': round(max(long_score, short_score) / 1.5 * 100, 1)  # 归一化到100
+            'confidence': round(max(long_score, short_score) / 1.5 * 100, 1)
         }
+
+    def _score_long(self, row, prev, hurst: float) -> Tuple[float, List[str]]:
+        """LONG方向评分"""
+        score = 0.0
+        reasons = []
+        rsi_os = self.config['rsi_oversold']
+        if row.get('uptrend', False) and row.get('adx', 0) > self.config['adx_trend_threshold']:
+            score += 0.35; reasons.append('trend_up')
+        if row.get('macd', 0) > row.get('macd_signal', 0) and prev.get('macd', 0) <= prev.get('macd_signal', 0):
+            score += 0.30; reasons.append('macd_golden')
+        if row.get('close', 0) > row.get('ma20', 0) and prev.get('close', 0) <= prev.get('ma20', 0):
+            score += 0.25; reasons.append('ma20_breakout')
+        if row.get('rsi', 50) < 40 and row.get('rsi', 50) > prev.get('rsi', 50):
+            score += 0.20; reasons.append('rsi_oversold')
+        if row.get('vol_ratio', 1) > self.config['volume_high_threshold']:
+            score += 0.15; reasons.append('volume_surge')
+        if row.get('momentum', 0) > 0 and prev.get('momentum', 0) <= 0:
+            score += 0.15; reasons.append('momentum_positive')
+        # 均值回归补充
+        if hurst < self.config['hurst_mean_rev_threshold']:
+            if row.get('rsi', 50) < rsi_os and row.get('close', 0) < row.get('bb_lower', 0):
+                score += 0.25; reasons.append('mean_rev_oversold')
+            if row.get('rsi', 50) > prev.get('rsi', 50) and row.get('rsi', 50) < rsi_os:
+                score += 0.10; reasons.append('rsi_bounce')
+        return score, reasons
+
+    def _score_short(self, row, prev, hurst: float) -> Tuple[float, List[str]]:
+        """SHORT方向评分"""
+        score = 0.0
+        reasons = []
+        rsi_ob = self.config['rsi_overbought']
+        if row.get('downtrend', False) and row.get('adx', 0) > self.config['adx_trend_threshold']:
+            score += 0.35; reasons.append('trend_down')
+        if row.get('macd', 0) < row.get('macd_signal', 0) and prev.get('macd', 0) >= prev.get('macd_signal', 0):
+            score += 0.30; reasons.append('macd_death')
+        if row.get('close', 0) < row.get('ma20', 0) and prev.get('close', 0) >= prev.get('ma20', 0):
+            score += 0.25; reasons.append('ma20_breakdown')
+        if row.get('rsi', 50) > 60 and row.get('rsi', 50) < prev.get('rsi', 50):
+            score += 0.20; reasons.append('rsi_overbought')
+        if row.get('vol_ratio', 1) > self.config['volume_high_threshold']:
+            score += 0.15; reasons.append('volume_surge')
+        if row.get('momentum', 0) < 0 and prev.get('momentum', 0) >= 0:
+            score += 0.15; reasons.append('momentum_negative')
+        # 均值回归补充
+        if hurst < self.config['hurst_mean_rev_threshold']:
+            if row.get('rsi', 50) > rsi_ob and row.get('close', 0) > row.get('bb_upper', 0):
+                score += 0.25; reasons.append('mean_rev_overbought')
+        return score, reasons
 
     def run_backtest(self, df: pd.DataFrame, symbol: str = 'UNKNOWN',
                      capital: float = 100000, sl_atr: float = 1.5,

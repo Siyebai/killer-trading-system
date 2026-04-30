@@ -173,9 +173,9 @@ class EVFilter:
                     symbol=input_data.symbol, error=msg
                 )
 
-            # 计算止盈止损百分比(防御除零)
-            if input_data.entry_price == 0:
-                raise ZeroDivisionError("entry_price is zero")
+            # 计算止盈止损百分比(防御除零) - 修复浮点精度问题
+            if input_data.entry_price is None or abs(input_data.entry_price) < 1e-8:
+                raise ZeroDivisionError("entry_price is zero or near-zero")
 
             if input_data.direction == TradeDirection.LONG:
                 tp_pct = (input_data.tp_price - input_data.entry_price) / input_data.entry_price

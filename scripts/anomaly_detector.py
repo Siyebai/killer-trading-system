@@ -271,7 +271,7 @@ class AnomalyDetector:
 
                 # 归一化为[0, 1]
                 c = self._c_factor(self.window_size)
-                score = 2.0 ** (-avg_path_len / c)
+                score = 0.5 if c == 0 else 2.0 ** (-avg_path_len / c)
                 scores.append(score)
 
             return np.array(scores)
@@ -307,7 +307,7 @@ class AnomalyDetector:
 
             # 第二层防御：获取阈值
             threshold = thresholds.get(metric_name.lower(), 0.0)
-            if threshold == 0.0:
+            if threshold is None or abs(threshold) < 1e-10:
                 return None
 
             # 第三层防御：阈值判断
@@ -379,7 +379,7 @@ class AnomalyDetector:
 
             # 归一化
             c = self._c_factor(self.window_size)
-            score = 2.0 ** (-avg_path_len / c)
+            score = 0.5 if c == 0 else 2.0 ** (-avg_path_len / c)
 
             return score
 
@@ -496,7 +496,6 @@ class AnomalyDetector:
                 {
                     "type": anomaly.anomaly_type.value,
                     "severity": anomaly.severity.value,
-                    "timestamp": anomaly.timestamp,
                     "metric_name": anomaly.metric_name,
                     "anomaly_score": anomaly.anomaly_score,
                     "context": anomaly.context

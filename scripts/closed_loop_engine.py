@@ -68,86 +68,30 @@ class SignalConfirmationPipeline:
         Level 2: Hurst指数确认 (权重30%)
         Level 3: 量比+动量确认 (权重30%)
         """
-        confirmations = 0
         scores = {}
-        
         rsi = data.get('rsi', 50)
         bb_position = data.get('bb_position', 0.5)
         adx = data.get('adx', 20)
         macd_signal = data.get('macd_signal', 0)
-        
+
         # Level 1: 策略感知评分
         if strategy_type in ('trend_following', 'trend'):
-            # 趋势跟踪: MACD+ADX为主, RSI/BB为辅
-            if signal_type == 1:  # LONG
-                score = 0
-                if macd_signal == 1: score += 0.35
-                if adx > 20: score += 0.30
-                elif adx > 15: score += 0.15
-                if rsi < 55: score += 0.15
-                if bb_position < 0.6: score += 0.10
-                if data.get('plus_di', 0) > data.get('minus_di', 0): score += 0.10
-                scores['multidim'] = score
-                if score >= 0.3: confirmations += 1
-            elif signal_type == -1:  # SHORT
-                score = 0
-                if macd_signal == -1: score += 0.35
-                if adx > 20: score += 0.30
-                elif adx > 15: score += 0.15
-                if rsi > 45: score += 0.15
-                if bb_position > 0.4: score += 0.10
-                if data.get('minus_di', 0) > data.get('plus_di', 0): score += 0.10
-                scores['multidim'] = score
-                if score >= 0.3: confirmations += 1
+            scores['multidim'] = self._score_trend_signal(signal_type, rsi, adx, macd_signal, bb_position, data)
         else:
-            # 均值回归: RSI+BB为主, MACD/ADX为辅
-            if signal_type == 1:  # LONG
-                score = 0
-                if rsi < 40: score += 0.3
-                elif rsi < 50: score += 0.15
-                if bb_position < 0.3: score += 0.3
-                elif bb_position < 0.5: score += 0.15
-                if adx > 20: score += 0.2
-                if macd_signal == 1: score += 0.2
-                scores['multidim'] = score
-                if score >= 0.3: confirmations += 1
-            elif signal_type == -1:  # SHORT
-                score = 0
-                if rsi > 60: score += 0.3
-                elif rsi > 50: score += 0.15
-                if bb_position > 0.7: score += 0.3
-                elif bb_position > 0.5: score += 0.15
-                if adx > 20: score += 0.2
-                if macd_signal == -1: score += 0.2
-                scores['multidim'] = score
-                if score >= 0.3: confirmations += 1
-        
+            scores['multidim'] = self._score_mean_reversion_signal(signal_type, rsi, adx, macd_signal, bb_position)
+
+        confirmations = 1 if scores['multidim'] >= 0.3 else 0
+
         # Level 2: Hurst指数确认
-        hurst = data.get('hurst', 0.5)
-        if signal_type != 0:
-            is_mean_rev = (signal_type == 1 and rsi < 40) or (signal_type == -1 and rsi > 60)
-            is_trend = (signal_type == 1 and macd_signal == 1) or (signal_type == -1 and macd_signal == -1)
-            
-            if is_mean_rev and hurst < 0.5:
-                scores['hurst'] = 1.0 - hurst
-                confirmations += 1
-            elif is_trend and hurst > 0.5:
-                scores['hurst'] = hurst
-                confirmations += 1
-            else:
-                scores['hurst'] = 0.4  # 部分确认
-        
-        # Level 3: 量比+动量确认
-        vol_ratio = data.get('vol_ratio', 1.0)
-        momentum = data.get('momentum', 0)
-        
-        vol_confirm = vol_ratio > 0.8  # 放宽条件
-        mom_confirm = (momentum > -0.01 and signal_type == 1) or (momentum < 0.01 and signal_type == -1)
-        scores['volume'] = 0.7 if vol_confirm else 0.3
-        scores['momentum'] = 0.7 if mom_confirm else 0.3
-        if vol_confirm or mom_confirm:
+        scores['hurst'] = self._score_hurst_signal(signal_type, data.get('hurst', 0.5), rsi, macd_signal)
+        if scores['hurst'] >= 0.4:
             confirmations += 1
-        
+
+        # Level 3: 量比+动量确认
+        scores['volume'], scores['momentum'] = self._score_volume_momentum(signal_type, data)
+        if scores['volume'] >= 0.5 or scores['momentum'] >= 0.5:
+            confirmations += 1
+
         # 加权总分
         total_score = (
             scores.get('multidim', 0) * 0.40 +
@@ -170,6 +114,70 @@ class SignalConfirmationPipeline:
         self.confirmation_log.append(result)
         return result
 
+    def _score_trend_signal(self, signal_type: int, rsi: float, adx: float, macd_signal: int, bb_position: float, data: Dict) -> float:
+        """趋势跟踪信号评分: LONG=信号1, SHORT=信号-1"""
+        if signal_type == 0:
+            return 0.0
+        is_long = signal_type == 1
+        score = 0.0
+        if is_long:
+            if macd_signal == 1: score += 0.35
+            if adx > 20: score += 0.30
+            elif adx > 15: score += 0.15
+            if rsi < 55: score += 0.15
+            if bb_position < 0.6: score += 0.10
+            if data.get('plus_di', 0) > data.get('minus_di', 0): score += 0.10
+        else:
+            if macd_signal == -1: score += 0.35
+            if adx > 20: score += 0.30
+            elif adx > 15: score += 0.15
+            if rsi > 45: score += 0.15
+            if bb_position > 0.4: score += 0.10
+            if data.get('minus_di', 0) > data.get('plus_di', 0): score += 0.10
+        return score
+
+    def _score_mean_reversion_signal(self, signal_type: int, rsi: float, adx: float, macd_signal: int, bb_position: float) -> float:
+        """均值回归信号评分: LONG=信号1, SHORT=信号-1"""
+        if signal_type == 0:
+            return 0.0
+        is_long = signal_type == 1
+        score = 0.0
+        if is_long:
+            if rsi < 40: score += 0.3
+            elif rsi < 50: score += 0.15
+            if bb_position < 0.3: score += 0.3
+            elif bb_position < 0.5: score += 0.15
+            if adx > 20: score += 0.2
+            if macd_signal == 1: score += 0.2
+        else:
+            if rsi > 60: score += 0.3
+            elif rsi > 50: score += 0.15
+            if bb_position > 0.7: score += 0.3
+            elif bb_position > 0.5: score += 0.15
+            if adx > 20: score += 0.2
+            if macd_signal == -1: score += 0.2
+        return score
+
+    def _score_hurst_signal(self, signal_type: int, hurst: float, rsi: float, macd_signal: int) -> float:
+        """Hurst指数确认评分"""
+        if signal_type == 0:
+            return 0.0
+        is_mean_rev = (signal_type == 1 and rsi < 40) or (signal_type == -1 and rsi > 60)
+        is_trend = (signal_type == 1 and macd_signal == 1) or (signal_type == -1 and macd_signal == -1)
+        if is_mean_rev and hurst < 0.5:
+            return 1.0 - hurst
+        elif is_trend and hurst > 0.5:
+            return hurst
+        return 0.4  # 部分确认
+
+    def _score_volume_momentum(self, signal_type: int, data: Dict) -> Tuple[float, float]:
+        """量比+动量评分"""
+        vol_ratio = data.get('vol_ratio', 1.0)
+        momentum = data.get('momentum', 0)
+        vol_score = 0.7 if vol_ratio > 0.8 else 0.3
+        mom_score = 0.7 if ((momentum > -0.01 and signal_type == 1) or (momentum < 0.01 and signal_type == -1)) else 0.3
+        return vol_score, mom_score
+
 
 # ==================== 2. 自适应策略权重 ====================
 
@@ -181,11 +189,11 @@ class AdaptiveStrategyWeights:
     """
     
     def __init__(self, n_strategies: int = 3, decay: float = 0.95):
-        self.n_strategies = n_strategies
+        self.n_strategies = max(1, n_strategies)
         self.decay = decay  # EWMA衰减因子
         self.strategy_names = ['mean_reversion', 'trend_following', 'funding_rate']
         self.performance = {name: {'win_rate': 0.5, 'sharpe': 0.0, 'n_trades': 0} for name in self.strategy_names}
-        self.weights = np.array([1.0 / n_strategies] * n_strategies)
+        self.weights = np.array([1.0 / self.n_strategies] * self.n_strategies)
         self.min_weight = 0.10  # 单策略最低权重10%
         self.max_weight = 0.60  # 单策略最高权重60%
         self.min_trades_for_eval = 10  # 最少交易数才参与权重调整
@@ -246,7 +254,8 @@ class AdaptiveStrategyWeights:
         # Softmax归一化
         temperature = 0.3  # 更小温度=更激进的权重分配
         exp_scores = np.exp(scores / temperature - np.max(scores / temperature))
-        new_weights = exp_scores / exp_scores.sum()
+        exp_sum = exp_scores.sum()
+        new_weights = exp_scores / exp_sum if exp_sum > 0 else np.ones_like(scores) / len(scores)
         
         # 应用权重约束
         new_weights = np.clip(new_weights, self.min_weight, self.max_weight)
@@ -372,7 +381,7 @@ class ClosedLoopEngine:
             'mode': 'hybrid',
             'rsi_period': 14, 'rsi_oversold': 30, 'rsi_overbought': 70,
             'bb_period': 20, 'bb_std': 2.5,
-            'atr_period': 14, 'atr_sl': 1.5, 'atr_tp': 2.5,
+            'atr_period': 14, 'atr_sl': 1.5, 'atr_tp': 2.0,
             'trailing_stop_atr': 1.0,
             'trailing_step_atr': 0.5,
             'max_consecutive_losses': 8,
@@ -418,8 +427,10 @@ class ClosedLoopEngine:
         delta = df['close'].diff()
         gain = delta.where(delta > 0, 0).rolling(self.config['rsi_period']).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(self.config['rsi_period']).mean()
+        loss = loss.replace(0, 1e-10)
         rs = gain / loss
         df['rsi'] = 100 - (100 / (1 + rs))
+        df['rsi'] = df['rsi'].clip(0, 100)
         
         # 布林带
         df['bb_mid'] = df['close'].rolling(self.config['bb_period']).mean()
@@ -434,6 +445,9 @@ class ClosedLoopEngine:
         lc = abs(df['low'] - df['close'].shift())
         tr = pd.concat([hl, hc, lc], axis=1).max(axis=1)
         df['atr'] = tr.rolling(self.config['atr_period']).mean()
+        df['atr'] = df['atr'].ffill().bfill()  # NaN填充
+        min_atr = df['close'] * 0.001  # 最小ATR = 0.1%价格
+        df['atr'] = df['atr'].where(df['atr'] > min_atr, min_atr)  # ATR零保护
         
         # 均线
         df['sma20'] = df['close'].rolling(20).mean()
@@ -470,11 +484,15 @@ class ClosedLoopEngine:
         df['uptrend'] = (df['sma20'] > df['sma50']) & (df['close'] > df['sma20'])
         df['downtrend'] = (df['sma20'] < df['sma50']) & (df['close'] < df['sma20'])
         
+        # NaN保护和零除保护
+        df = df.ffill().bfill()
+        df['atr'] = df['atr'].clip(lower=df['close'] * 0.001)  # ATR最小值0.1%价格
+        
         return df
     
-    def _calculate_hurst(self, series, window=100):
+    def _calculate_hurst(self, series: np.ndarray, window: int = 100) -> np.ndarray:
         """简化Hurst指数计算"""
-        def hurst(ts):
+        def hurst(ts: np.ndarray) -> float:
             if len(ts) < 20:
                 return 0.5
             try:
@@ -665,8 +683,9 @@ class ClosedLoopEngine:
                         pos['sl'] = pos['entry']
                     
                     # 追踪止损: 浮盈达到trailing_stop_atr时，移止损到入场价+trailing_step_atr
-                    if row['close'] >= pos['entry'] + self.config.get('trailing_stop_atr', 1.0) * atr:
-                        new_sl = pos['entry'] + self.config.get('trailing_step_atr', 0.5) * atr
+                    trailing_atr = row['atr']
+                    if row['close'] >= pos['entry'] + self.config.get('trailing_stop_atr', 1.0) * trailing_atr:
+                        new_sl = pos['entry'] + self.config.get('trailing_step_atr', 0.5) * trailing_atr
                         if new_sl > pos['sl']:
                             pos['sl'] = new_sl
                     
@@ -681,8 +700,9 @@ class ClosedLoopEngine:
                         pos['sl'] = pos['entry']
                     
                     # 追踪止损: 浮盈达到trailing_stop_atr时，移止损到入场价-trailing_step_atr
-                    if row['close'] <= pos['entry'] - self.config.get('trailing_stop_atr', 1.0) * atr:
-                        new_sl = pos['entry'] - self.config.get('trailing_step_atr', 0.5) * atr
+                    trailing_atr = row['atr']
+                    if row['close'] <= pos['entry'] - self.config.get('trailing_stop_atr', 1.0) * trailing_atr:
+                        new_sl = pos['entry'] - self.config.get('trailing_step_atr', 0.5) * trailing_atr
                         if new_sl < pos['sl']:
                             pos['sl'] = new_sl
                     
@@ -706,7 +726,17 @@ class ClosedLoopEngine:
                         self.consecutive_losses = 0
                     else:
                         self.consecutive_losses += 1
-                        self.daily_pnl += pnl
+                        actual_pnl_loss = abs(pnl) * position_ratio
+                        self.daily_pnl -= actual_pnl_loss
+                    
+                    # 日亏损重置：检测日期变化
+                    if i > 0 and hasattr(df.index[i], 'date'):
+                        if df.index[i].date() != df.index[i-1].date():
+                            self.daily_pnl = 0
+                    
+                    # 熔断检查（daily_pnl为负累计值，与equity比例比较）
+                    if self.consecutive_losses >= self.config['max_consecutive_losses'] or (equity > 0 and self.daily_pnl / equity <= -self.config['daily_loss_limit']):
+                        self._trigger_circuit_breaker(current_time)
                     
                     trade_log.append({
                         'symbol': sym,
@@ -722,13 +752,9 @@ class ClosedLoopEngine:
                     self.feedback_loop.record_trade(trade_log[-1])
                     
                     del positions[sym]
-                    
-                    # 熔断检查
-                    if self.consecutive_losses >= self.config['max_consecutive_losses'] or self.daily_pnl <= -self.config['daily_loss_limit']:
-                        self._trigger_circuit_breaker(current_time)
             
-            # 生成新信号
-            if symbol not in positions:
+            # 生成新信号（熔断期间禁止开仓）
+            if symbol not in positions and not self._check_circuit_breaker(current_time):
                 raw_signal, strategy = self._generate_raw_signal(df, i)
                 
                 if raw_signal != 0:
@@ -749,13 +775,14 @@ class ClosedLoopEngine:
                     
                     if confirmation['confirmed']:
                         entry = row['close']
-                        atr = row['atr']
+                        atr = max(row['atr'], entry * 0.002)  # ATR最小保护(0.2%价格)
+                        min_sl_dist = entry * 0.003  # 止损最小距离0.3%
                         
                         if raw_signal == 1:
-                            sl = entry - self.config['atr_sl'] * atr
+                            sl = entry - max(self.config['atr_sl'] * atr, min_sl_dist)
                             tp = entry + self.config['atr_tp'] * atr
                         else:
-                            sl = entry + self.config['atr_sl'] * atr
+                            sl = entry + max(self.config['atr_sl'] * atr, min_sl_dist)
                             tp = entry - self.config['atr_tp'] * atr
                         
                         # 凯利仓位计算

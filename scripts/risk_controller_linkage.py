@@ -282,7 +282,7 @@ class RiskControllerLinkage:
             historical_mean: 历史均值
             historical_std: 历史标准差
         """
-        if historical_std == 0:
+        if historical_std is None or abs(historical_std) < 1e-10:
             return
         sigma = (predicted_vol - historical_mean) / historical_std
 

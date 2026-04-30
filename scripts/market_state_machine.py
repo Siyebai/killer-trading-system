@@ -215,7 +215,8 @@ class MarketStateMachine:
             # ATR/Price 波动率
             atr = ta.volatility.AverageTrueRange(high, low, close, window=14).average_true_range()
             atr_val = atr.iloc[-1] if len(atr) > 0 else close.iloc[-1] * 0.02
-            vol_ratio = atr_val / close.iloc[-1]
+            close_val = close.iloc[-1] if len(close) > 0 and close.iloc[-1] > 0 else 1.0
+            vol_ratio = atr_val / close_val
 
             # EMA斜率
             ema20 = close.ewm(span=20).mean()

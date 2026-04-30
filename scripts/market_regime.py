@@ -250,7 +250,7 @@ class MarketRegimeDetector:
 
         price = market_tick.get('price', 0)
 
-        if price == 0:
+        if price is None or abs(price) < 1e-8:
             return {
                 'regime': NOISE,
                 'reason': '无效价格',

@@ -137,6 +137,25 @@ class ConfigManager:
                 return default
         return value
 
+    def get_system_params(self) -> Dict[str, Any]:
+        """
+        加载系统级操作参数(system_params.yaml)。
+
+        Returns:
+            系统参数字典，支持点号路径访问
+        """
+        try:
+            import yaml
+            # Use script directory + config/ subdirectory for reliability
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            params_path = os.path.join(script_dir, "..", "config", "system_params.yaml")
+            if os.path.exists(params_path):
+                with open(params_path, encoding="utf-8") as f:
+                    return yaml.safe_load(f) or {}
+            return {}
+        except Exception:
+            return {}
+
     def set(self, key_path: str, value: Any) -> None:
         """
         运行时修改配置(不持久化,仅影响当前进程)。

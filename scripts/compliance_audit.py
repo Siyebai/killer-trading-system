@@ -118,7 +118,6 @@ class ComplianceAuditSystem:
                     {
                         "event_id": event.event_id,
                         "event_type": event_type,
-                        "timestamp": event.timestamp
                     },
                     source="compliance_audit"
                 )

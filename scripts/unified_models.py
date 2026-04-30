@@ -26,7 +26,7 @@ class OrderSide(Enum):
 
 
 class OrderStatus(Enum):
-    """订单状态"""
+    """订单状态（权威定义，与 order_lifecycle_manager.OrderState 字段等价）"""
     PENDING = "PENDING"
     SUBMITTED = "SUBMITTED"
     PARTIAL_FILLED = "PARTIAL_FILLED"
@@ -35,6 +35,16 @@ class OrderStatus(Enum):
     REJECTED = "REJECTED"
     EXPIRED = "EXPIRED"
     CLOSED = "CLOSED"
+
+    @staticmethod
+    def is_terminal(status: "OrderStatus") -> bool:
+        """判断是否为终态""" 
+        return status in (OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.EXPIRED, OrderStatus.CLOSED)
+
+
+# 订单状态机说明（权威定义位于 order_lifecycle_manager.py）
+# 完整状态: NEW->SUBMITTING->ACKNOWLEDGED->终态或PARTIALLY_FILLED->终态
+# unified_models.OrderStatus 映射到上述状态
 
 
 class Direction(Enum):

@@ -40,8 +40,8 @@ from scripts.anomaly_detector import AnomalyDetector
 # 健康检查
 from scripts.health_check import HealthChecker
 
-# 性能监控
-from scripts.performance_monitor import PerformanceMonitor
+# 性能监控 - 暂未实现
+# from scripts.performance_monitor import PerformanceMonitor
 # from scripts.final_performance_check import FinalPerformanceChecker  # 脚本，非模块
 
 __all__ = [
@@ -84,8 +84,8 @@ __all__ = [
     # 健康检查
     "HealthChecker",
 
-    # 性能监控
-    "PerformanceMonitor",
+    # 性能监控 - 暂未实现
+    # "PerformanceMonitor",
     # "FinalPerformanceChecker",  # 脚本，非模块
 ]
 

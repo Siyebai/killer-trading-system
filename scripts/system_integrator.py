@@ -83,6 +83,12 @@ class SystemIntegrator:
         # 回调函数
         self.safety_breach_callbacks: List[callable] = []
 
+        # 配置（用于HRP等扩展模块）
+        self.config: Dict = {
+            'hrp_max_weight_ratio': 2.0,  # HRP权重上限（均分的倍数）
+            'hrp_enabled': True,          # 是否启用HRP权重建议
+        }
+
         logger.info(f"系统整合器初始化完成: 模式={mode.value}")
 
     def register_module(self, name: str, module: object) -> bool:
@@ -355,6 +361,128 @@ class SystemIntegrator:
     def add_safety_breach_callback(self, callback: callable) -> None:
         """添加安全违规回调"""
         self.safety_breach_callbacks.append(callback)
+
+    # ========== HRP 风险平价整合层 ==========
+
+    def get_hrp_weights(self, symbol_prices: Dict[str, 'pd.Series'],
+                        lookback_days: int = 120,
+                        risk_free_rate: float = 0.0) -> Dict[str, float]:
+        """
+        使用分层风险平价(HRP)计算品种目标权重。
+
+        HRP通过层次聚类构建资产树状结构，递归二分分配权重。
+        绕过了协方差矩阵求逆的数值不稳定性。
+
+        Args:
+            symbol_prices: 品种价格字典 {symbol: pd.Series of prices}
+            lookback_days: 回看天数（默认120天）
+            risk_free_rate: 无风险利率（年化）
+
+        Returns:
+            品种权重字典 {symbol: weight}，权重之和为1.0
+
+        Reference:
+            - Lopez de Prado (2016): "Building Diversified Portfolios that Outperform Out-of-Sample"
+            - Cycle 1 深度学习: references/deep_learning/risk_parity_family/
+        """
+        try:
+            import pandas as pd
+            import numpy as np
+
+            if not symbol_prices:
+                logger.warning("HRP: 无品种数据，返回均分权重")
+                return {}
+
+            # 对齐价格数据
+            symbols = list(symbol_prices.keys())
+            price_df = pd.DataFrame(symbol_prices)
+            price_df = price_df.dropna()
+
+            if len(price_df) < 30:
+                logger.warning(f"HRP: 数据不足({len(price_df)}条)，返回均分权重")
+                return {s: 1.0 / len(symbols) for s in symbols}
+
+            # 计算收益率
+            returns = price_df.pct_change().dropna()
+
+            if len(returns) < 30:
+                logger.warning(f"HRP: 收益率数据不足，返回均分权重")
+                return {s: 1.0 / len(symbols) for s in symbols}
+
+            # 调用HRP
+            try:
+                from scripts.portfolio_hrp import HierarchicalRiskParity
+                hrp = HierarchicalRiskParity()
+                weights = hrp.allocate(returns)
+                weights = {k: float(v) for k, v in weights.items()}
+                total = sum(weights.values())
+                if total > 0:
+                    weights = {k: v / total for k, v in weights.items()}
+                logger.info(f"HRP: 计算完成, weights={weights}")
+                return weights
+            except ImportError:
+                logger.warning("HRP模块不可用，返回均分权重")
+                return {s: 1.0 / len(symbols) for s in symbols}
+            except Exception as e:
+                logger.error(f"HRP计算失败: {e}，返回均分权重")
+                return {s: 1.0 / len(symbols) for s in symbols}
+
+        except Exception as e:
+            logger.error(f"get_hrp_weights异常: {e}")
+            return {}
+
+    def get_position_size_with_hrp(self,
+                                    symbol: str,
+                                    base_size: float,
+                                    hrp_weights: Dict[str, float],
+                                    equity: float) -> float:
+        """
+        根据HRP权重调整目标头寸规模。
+
+        在安全边界（hard limit）检查之前，先用HRP权重作为软参考。
+        HRP权重仅作为建议，不覆盖风控硬限制。
+
+        Args:
+            symbol: 品种名称
+            base_size: 基础头寸规模（由策略决定）
+            hrp_weights: HRP计算的建议权重
+            equity: 当前权益
+
+        Returns:
+            调整后的头寸规模
+
+        逻辑:
+            adjusted_size = base_size × min(hrp_weight / equal_weight, max_ratio)
+            其中 equal_weight = 1 / N, max_ratio = 2.0（防止过度集中）
+        """
+        try:
+            n_symbols = len(hrp_weights)
+            if n_symbols == 0 or symbol not in hrp_weights:
+                logger.debug(f"HRP: {symbol}无权重数据，使用base_size={base_size}")
+                return base_size
+
+            hrp_weight = hrp_weights[symbol]
+            equal_weight = 1.0 / n_symbols
+            max_ratio = self.config.get('hrp_max_weight_ratio', 2.0)
+
+            # 软调整：限制单品种权重不超过均分的max_ratio倍
+            if hrp_weight > equal_weight * max_ratio:
+                adjustment = equal_weight * max_ratio / equal_weight
+                adjusted_size = base_size * adjustment
+                logger.debug(f"HRP: {symbol}权重受限({hrp_weight:.3f}→{equal_weight*max_ratio:.3f})，"
+                            f"调整头寸{base_size:.4f}→{adjusted_size:.4f}")
+            else:
+                adjustment = hrp_weight / equal_weight
+                adjusted_size = base_size * adjustment
+                logger.debug(f"HRP: {symbol}权重={hrp_weight:.3f}，调整头寸{base_size:.4f}→{adjusted_size:.4f}")
+
+            return adjusted_size
+
+        except Exception as e:
+            logger.error(f"get_position_size_with_hrp异常: {e}")
+            return base_size
+
+    # ========== HRP 整合层结束 ==========
 
 
 if __name__ == "__main__":

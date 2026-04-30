@@ -106,7 +106,7 @@ class OrderFlowConfirmer:
         volume_delta = buy_volume - sell_volume
 
         # Delta比率
-        if sell_volume == 0:
+        if abs(sell_volume) < 1e-10:
             delta_ratio = 999.0  # 全是买单
         else:
             delta_ratio = buy_volume / sell_volume
@@ -191,7 +191,7 @@ class OrderFlowConfirmer:
         buy_volume = sum(t.get('size', 0) for t in filtered_trades if t.get('side') == 'buy')
         sell_volume = sum(t.get('size', 0) for t in filtered_trades if t.get('side') == 'sell')
 
-        if sell_volume == 0:
+        if abs(sell_volume) < 1e-10:
             return 999.0  # 全是买单
 
         return buy_volume / sell_volume

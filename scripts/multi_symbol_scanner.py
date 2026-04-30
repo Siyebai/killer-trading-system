@@ -269,10 +269,10 @@ class MultiSymbolScanner:
 
     def _mean_reversion_signals(self, symbol: str, close: pd.Series, high: pd.Series, low: pd.Series,
                                 volume: pd.Series, params: Dict) -> List[Dict]:
-        """均值回归信号 - OB70/OS30 + 2.5sigma BB"""
+        """均值回归信号 - 评分制（RSI+BB+量比，任一触发即评分）"""
         signals = []
 
-        # RSI
+        # RSI (含零除保护)
         delta = close.diff()
         gain = delta.where(delta > 0, 0).rolling(14).mean()
         loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
@@ -284,6 +284,7 @@ class MultiSymbolScanner:
         bb_std = close.rolling(params.get('bb_period', 20)).std()
         bb_upper = bb_mid + bb_std * params.get('bb_std', 2.5)
         bb_lower = bb_mid - bb_std * params.get('bb_std', 2.5)
+        bb_width = (bb_upper - bb_lower) / bb_mid.replace(0, np.nan)
 
         # ATR
         tr = pd.concat([
@@ -293,36 +294,93 @@ class MultiSymbolScanner:
         ], axis=1).max(axis=1)
         atr = tr.rolling(14).mean()
 
-        latest_rsi = rsi.iloc[-1]
-        latest_close = close.iloc[-1]
-        latest_atr = atr.iloc[-1]
+        # 量比
+        vol_ma = volume.rolling(20).mean()
+        vol_ratio = volume / vol_ma.replace(0, np.nan)
 
-        # RSI超卖 + 布林下轨
-        if latest_rsi < params.get('rsi_oversold', 30) and latest_close < bb_lower.iloc[-1]:
+        latest_rsi = rsi.iloc[-1] if not np.isnan(rsi.iloc[-1]) else 50
+        latest_close = close.iloc[-1]
+        latest_atr = atr.iloc[-1] if not np.isnan(atr.iloc[-1]) else latest_close * 0.02
+        latest_bb_lower = bb_lower.iloc[-1] if not np.isnan(bb_lower.iloc[-1]) else latest_close * 0.95
+        latest_bb_upper = bb_upper.iloc[-1] if not np.isnan(bb_upper.iloc[-1]) else latest_close * 1.05
+        latest_vol_ratio = vol_ratio.iloc[-1] if not np.isnan(vol_ratio.iloc[-1]) else 1.0
+
+        # 最小ATR保护
+        min_atr = latest_close * 0.005
+        latest_atr = max(latest_atr, min_atr)
+
+        # --- 做多评分 ---
+        long_score = 0.0
+        long_reasons = []
+
+        if latest_rsi < params.get('rsi_oversold', 30):
+            long_score += 0.40
+            long_reasons.append(f"RSI超卖({latest_rsi:.1f})")
+        elif latest_rsi < 40:
+            long_score += 0.15
+            long_reasons.append(f"RSI偏低({latest_rsi:.1f})")
+
+        if latest_close < latest_bb_lower:
+            long_score += 0.35
+            long_reasons.append("BB下轨突破")
+        elif latest_close < latest_bb_lower * 1.01:
+            long_score += 0.15
+            long_reasons.append("接近BB下轨")
+
+        if latest_vol_ratio < 0.8:
+            long_score += 0.15
+            long_reasons.append("低量(适合均值回归)")
+
+        if long_score >= params.get('signal_threshold', 0.25):
             sl = latest_close - latest_atr * params.get('sl_atr_multiplier', 1.5)
-            tp = latest_close + latest_atr * params.get('tp_atr_multiplier', 3.0)
+            tp = latest_close + latest_atr * params.get('tp_atr_multiplier', 2.0)
+            confidence = min(int(long_score * 100), 90)
             signals.append({
                 'type': 'LONG',
-                'confidence': 70,
+                'confidence': confidence,
                 'strategy': 'mean_reversion',
                 'symbol': symbol,
-                'reason': f"RSI超卖({latest_rsi:.1f})+BB下轨",
+                'reason': '+'.join(long_reasons),
                 'stop_loss': sl,
-                'take_profit': tp
+                'take_profit': tp,
+                'score': long_score
             })
 
-        # RSI超买 + 布林上轨
-        elif latest_rsi > params.get('rsi_overbought', 70) and latest_close > bb_upper.iloc[-1]:
+        # --- 做空评分 ---
+        short_score = 0.0
+        short_reasons = []
+
+        if latest_rsi > params.get('rsi_overbought', 70):
+            short_score += 0.40
+            short_reasons.append(f"RSI超买({latest_rsi:.1f})")
+        elif latest_rsi > 60:
+            short_score += 0.15
+            short_reasons.append(f"RSI偏高({latest_rsi:.1f})")
+
+        if latest_close > latest_bb_upper:
+            short_score += 0.35
+            short_reasons.append("BB上轨突破")
+        elif latest_close > latest_bb_upper * 0.99:
+            short_score += 0.15
+            short_reasons.append("接近BB上轨")
+
+        if latest_vol_ratio < 0.8:
+            short_score += 0.15
+            short_reasons.append("低量(适合均值回归)")
+
+        if short_score >= params.get('signal_threshold', 0.25):
             sl = latest_close + latest_atr * params.get('sl_atr_multiplier', 1.5)
-            tp = latest_close - latest_atr * params.get('tp_atr_multiplier', 3.0)
+            tp = latest_close - latest_atr * params.get('tp_atr_multiplier', 2.0)
+            confidence = min(int(short_score * 100), 90)
             signals.append({
                 'type': 'SHORT',
-                'confidence': 70,
+                'confidence': confidence,
                 'strategy': 'mean_reversion',
                 'symbol': symbol,
-                'reason': f"RSI超买({latest_rsi:.1f})+BB上轨",
+                'reason': '+'.join(short_reasons),
                 'stop_loss': sl,
-                'take_profit': tp
+                'take_profit': tp,
+                'score': short_score
             })
 
         return signals
@@ -344,15 +402,19 @@ class MultiSymbolScanner:
         ], axis=1).max(axis=1)
         atr = tr.rolling(14).mean()
 
-        latest_atr = atr.iloc[-1]
         latest_close = close.iloc[-1]
+        latest_atr = atr.iloc[-1] if not np.isnan(atr.iloc[-1]) else latest_close * 0.02
+
+        # 最小ATR保护
+        min_atr = latest_close * 0.005
+        latest_atr = max(latest_atr, min_atr)
 
         # 多头排列
         if ema_fast.iloc[-1] > ema_medium.iloc[-1] > ema_slow.iloc[-1]:
             # 金叉确认
             if ema_fast.iloc[-2] <= ema_medium.iloc[-2]:
                 sl = latest_close - latest_atr * params.get('atr_sl_multiplier', 2.0)
-                tp = latest_close + latest_atr * params.get('atr_tp_multiplier', 4.0)
+                tp = latest_close + latest_atr * params.get('atr_tp_multiplier', 2.5)
                 signals.append({
                     'type': 'LONG',
                     'confidence': 75,
@@ -367,7 +429,7 @@ class MultiSymbolScanner:
         elif ema_fast.iloc[-1] < ema_medium.iloc[-1] < ema_slow.iloc[-1]:
             if ema_fast.iloc[-2] >= ema_medium.iloc[-2]:
                 sl = latest_close + latest_atr * params.get('atr_sl_multiplier', 2.0)
-                tp = latest_close - latest_atr * params.get('atr_tp_multiplier', 4.0)
+                tp = latest_close - latest_atr * params.get('atr_tp_multiplier', 2.5)
                 signals.append({
                     'type': 'SHORT',
                     'confidence': 75,
@@ -404,10 +466,15 @@ class MultiSymbolScanner:
 
         latest_close = close.iloc[-1]
         latest_vol = volume.iloc[-1]
-        latest_atr = atr.iloc[-1]
+        latest_atr = atr.iloc[-1] if not np.isnan(atr.iloc[-1]) else latest_close * 0.02
 
-        # 上轨突破+放量
-        if latest_close > bb_upper.iloc[-1] and latest_vol > vol_ma.iloc[-1] * params.get('volume_spike', 2.0):
+        # 最小ATR保护
+        min_atr = latest_close * 0.005
+        latest_atr = max(latest_atr, min_atr)
+
+        # 上轨突破+放量 (含vol_ma零除保护)
+        latest_vol_ma = vol_ma.iloc[-1] if not np.isnan(vol_ma.iloc[-1]) and vol_ma.iloc[-1] > 0 else 1
+        if latest_close > bb_upper.iloc[-1] and latest_vol > latest_vol_ma * params.get('volume_spike', 2.0):
             sl = latest_close - latest_atr * params.get('sl_atr_multiplier', 1.5)
             tp = latest_close + latest_atr * params.get('tp_atr_multiplier', 3.0)
             signals.append({
@@ -415,13 +482,13 @@ class MultiSymbolScanner:
                 'confidence': 65,
                 'strategy': 'breakout',
                 'symbol': symbol,
-                'reason': f"BB上轨突破+放量({latest_vol/vol_ma.iloc[-1]:.1f}x)",
+                'reason': f"BB上轨突破+放量({latest_vol/latest_vol_ma:.1f}x)",
                 'stop_loss': sl,
                 'take_profit': tp
             })
 
         # 下轨突破+放量
-        elif latest_close < bb_lower.iloc[-1] and latest_vol > vol_ma.iloc[-1] * params.get('volume_spike', 2.0):
+        elif latest_close < bb_lower.iloc[-1] and latest_vol > latest_vol_ma * params.get('volume_spike', 2.0):
             sl = latest_close + latest_atr * params.get('sl_atr_multiplier', 1.5)
             tp = latest_close - latest_atr * params.get('tp_atr_multiplier', 3.0)
             signals.append({
@@ -429,7 +496,7 @@ class MultiSymbolScanner:
                 'confidence': 65,
                 'strategy': 'breakout',
                 'symbol': symbol,
-                'reason': f"BB下轨突破+放量({latest_vol/vol_ma.iloc[-1]:.1f}x)",
+                'reason': f"BB下轨突破+放量({latest_vol/latest_vol_ma:.1f}x)",
                 'stop_loss': sl,
                 'take_profit': tp
             })
@@ -463,13 +530,19 @@ class MultiSymbolScanner:
         ], axis=1).max(axis=1)
         atr = tr.rolling(14).mean()
 
-        latest_rsi = rsi.iloc[-1]
-        latest_macd = macd_hist.iloc[-1]
+        latest_rsi = rsi.iloc[-1] if not np.isnan(rsi.iloc[-1]) else 50
+        latest_macd = macd_hist.iloc[-1] if not np.isnan(macd_hist.iloc[-1]) else 0
         latest_close = close.iloc[-1]
-        latest_atr = atr.iloc[-1]
+        latest_atr = atr.iloc[-1] if not np.isnan(atr.iloc[-1]) else latest_close * 0.02
 
-        # RSI从超卖回升 + MACD金叉
-        if latest_rsi > 30 and rsi.iloc[-2] <= 30 and latest_macd > 0 and macd_hist.iloc[-2] <= 0:
+        # 最小ATR保护
+        min_atr = latest_close * 0.005
+        latest_atr = max(latest_atr, min_atr)
+
+        # RSI从超卖回升 + MACD金叉 (含NaN保护)
+        prev_rsi = rsi.iloc[-2] if len(rsi) > 1 and not np.isnan(rsi.iloc[-2]) else 50
+        prev_macd = macd_hist.iloc[-2] if len(macd_hist) > 1 and not np.isnan(macd_hist.iloc[-2]) else 0
+        if latest_rsi > 30 and prev_rsi <= 30 and latest_macd > 0 and prev_macd <= 0:
             sl = latest_close - latest_atr * params.get('sl_atr_multiplier', 1.5)
             tp = latest_close + latest_atr * params.get('tp_atr_multiplier', 3.0)
             signals.append({
@@ -483,7 +556,7 @@ class MultiSymbolScanner:
             })
 
         # RSI从超买回落 + MACD死叉
-        elif latest_rsi < 70 and rsi.iloc[-2] >= 70 and latest_macd < 0 and macd_hist.iloc[-2] >= 0:
+        elif latest_rsi < 70 and prev_rsi >= 70 and latest_macd < 0 and prev_macd >= 0:
             sl = latest_close + latest_atr * params.get('sl_atr_multiplier', 1.5)
             tp = latest_close - latest_atr * params.get('tp_atr_multiplier', 3.0)
             signals.append({

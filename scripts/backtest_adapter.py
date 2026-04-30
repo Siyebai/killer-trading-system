@@ -132,9 +132,9 @@ class BacktestAdapter:
                 buy_action = ActionType.BUY.value if ActionType else "buy"
                 sell_action = ActionType.SELL.value if ActionType else "sell"
 
-                if action_str == buy_action and position <= 0:
+                if action_str == buy_action and position < -1e-8:
                     # 平空仓（如果有）
-                    if position < 0:
+                    if position < -1e-8:
                         pnl = (entry_price - close) * abs(position)
                         cash += pnl
                         total_profit += pnl if pnl > 0 else total_loss
@@ -154,9 +154,9 @@ class BacktestAdapter:
                     entry_price = close
                     entry_time = i
 
-                elif action_str == sell_action and position >= 0:
+                elif action_str == sell_action and position > -1e-8:
                     # 平多仓（如果有）
-                    if position > 0:
+                    if position > 1e-8:
                         pnl = (close - entry_price) * position
                         cash += pnl
                         total_profit += pnl if pnl > 0 else total_loss
@@ -177,9 +177,9 @@ class BacktestAdapter:
                     entry_time = i
 
                 # 计算当前权益
-                if position > 0:
+                if position > 1e-8:
                     equity = cash + position * close
-                elif position < 0:
+                elif position < -1e-8:
                     equity = cash - position * close
                 else:
                     equity = cash
@@ -187,9 +187,9 @@ class BacktestAdapter:
                 equity_curve.append(equity)
 
             # 第三层防御：平仓剩余仓位
-            if position != 0:
+            if abs(position) > 1e-8:
                 close = market_data[-1, 3]
-                if position > 0:
+                if position > 1e-8:
                     pnl = (close - entry_price) * position
                     cash += pnl
                 else:
@@ -303,7 +303,7 @@ class BacktestAdapter:
         avg_loss = np.mean(losses[-period:])
 
         # 第二层防御：除零保护
-        if avg_loss == 0:
+        if abs(avg_loss) < 1e-10:
             return 100.0
 
         rs = avg_gain / avg_loss
