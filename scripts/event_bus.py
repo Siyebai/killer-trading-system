@@ -369,6 +369,16 @@ class EventBus:
             logger.error(f"获取订阅者数量异常: {e}")
             return 0
 
+    def close(self) -> None:
+        """关闭事件总线，清理所有订阅和历史记录"""
+        try:
+            with self._lock:
+                self._subscribers.clear()
+                self._event_history.clear()
+            logger.info("[事件总线] 已关闭")
+        except Exception as e:
+            logger.error(f"关闭事件总线异常: {e}")
+
 
 # 全局事件总线实例
 _global_event_bus: Optional[EventBus] = None
@@ -424,3 +434,4 @@ if __name__ == "__main__":
     # 获取统计
     stats = bus.get_stats()
     print(f"统计信息: {json.dumps(stats, indent=2, ensure_ascii=False)}")
+

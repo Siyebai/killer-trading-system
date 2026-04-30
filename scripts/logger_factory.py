@@ -89,6 +89,19 @@ def get_logger(name: str, level: Optional[str] = None) -> logging.Logger:
         else:
             handler.setFormatter(CompactFormatter())
         logger.addHandler(handler)
+        
+        # 文件日志(带滚动,仅当设置了日志目录时启用)
+        log_dir = os.environ.get("KILLER_LOG_DIR", "")
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
+            from logging.handlers import RotatingFileHandler
+            file_handler = RotatingFileHandler(
+                os.path.join(log_dir, f"{name.replace('.', '_')}.log"),
+                maxBytes=10*1024*1024,  # 10MB per file
+                backupCount=5
+            )
+            file_handler.setFormatter(StructuredFormatter() if fmt == "json" else CompactFormatter())
+            logger.addHandler(file_handler)
 
     _LOGGERS[name] = logger
     return logger

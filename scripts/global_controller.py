@@ -257,6 +257,7 @@ class HealthChecker:
         self._running = False
         self._tasks: Dict[str, asyncio.Task] = {}
         self._last_heartbeat: Dict[str, float] = {}
+        
 
     def record_heartbeat(self, module_name: str) -> None:
         """记录模块心跳（用于心跳超时检测）"""
@@ -427,13 +428,13 @@ class RepairEngine:
     """
     
     def __init__(self, health_checker: HealthChecker, global_state: GlobalState,
-                 repair_interval: int = 60, max_retries: int = 3):
+                 repair_interval: int = 60, max_retries: int = 3, max_history: int = 200):
         self.health_checker = health_checker
         self.global_state = global_state
         self.repair_interval = repair_interval
         self.max_retries = max_retries
         self.repair_strategies: Dict[str, Callable] = {}
-        self.repair_history: List[Dict] = []
+        self.repair_history: deque = deque(maxlen=max_history)
         self._running = False
         self._task = None
     
