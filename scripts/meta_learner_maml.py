@@ -140,7 +140,7 @@ class MAMLMetaLearner:
         w = params['w_signal'][:len(features)]
         b = params['b_signal']
         score = np.dot(features, w) + b
-        return 1.0 / (1.0 + np.exp(-score))  # sigmoid
+        return 1.0 / (1.0 + np.exp(-np.clip(score, -500, 500)))  # numerically stable sigmoid
 
     def _compute_loss(self, data, params, feature_cols):
         """计算任务损失(负夏普比率)"""

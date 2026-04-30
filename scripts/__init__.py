@@ -11,7 +11,7 @@ __author__ = "Killer Trading System Team"
 from scripts.event_bus import EventBus, Event
 
 # 核心管理器
-from scripts.global_controller import GlobalController
+from scripts.global_controller import GlobalState, HealthChecker, ModuleHealth
 from scripts.system_integrator import SystemIntegrator
 from scripts.shadow_strategy_pool import ShadowStrategyPool
 from scripts.strategy_lifecycle_manager import StrategyLifecycleManager
@@ -54,7 +54,7 @@ __all__ = [
     "Event",
 
     # 核心管理器
-    "GlobalController",
+    "GlobalState",
     "SystemIntegrator",
     "ShadowStrategyPool",
     "StrategyLifecycleManager",

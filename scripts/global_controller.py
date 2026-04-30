@@ -256,6 +256,15 @@ class HealthChecker:
         self.check_funcs: Dict[str, Callable] = {}
         self._running = False
         self._tasks: Dict[str, asyncio.Task] = {}
+        self._last_heartbeat: Dict[str, float] = {}
+
+    def record_heartbeat(self, module_name: str) -> None:
+        """记录模块心跳（用于心跳超时检测）"""
+        self._last_heartbeat[module_name] = time.time()
+
+    def get_heartbeat_age(self, module_name: str) -> float:
+        """获取模块上次心跳距今秒数"""
+        return time.time() - self._last_heartbeat.get(module_name, 0)
     
     def register_module(self, name: str, check_func: Callable):
         """注册模块健康检查"""
@@ -509,14 +518,23 @@ class BuiltinRepairStrategies:
     
     @staticmethod
     def websocket_reconnect(ws_client) -> Callable:
-        """WebSocket重连修复策略"""
+        """WebSocket重连修复策略 - 含指数退避"""
+        _reconnect_count = [0]  # 闭包变量
+        
         async def repair() -> bool:
             try:
+                # 指数退避: 1s, 2s, 4s, 8s, 16s, 上限30s
+                backoff = min(30.0, 2.0 ** _reconnect_count[0])
+                await asyncio.sleep(backoff)
+                _reconnect_count[0] += 1
+                
                 if hasattr(ws_client, 'reconnect'):
                     await ws_client.reconnect()
+                    _reconnect_count[0] = 0
                     return True
                 elif hasattr(ws_client, 'connect'):
                     await ws_client.connect()
+                    _reconnect_count[0] = 0
                     return True
             except Exception:
                 return False

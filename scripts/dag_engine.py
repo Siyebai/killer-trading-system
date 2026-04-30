@@ -9,7 +9,6 @@ from typing import Dict, List, Any, Callable, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import time
-import threading
 from concurrent.futures import ThreadPoolExecutor, Future, wait
 
 try:

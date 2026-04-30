@@ -10,8 +10,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 import time
-import json
-
 try:
     from scripts.logger_factory import get_logger
     logger = get_logger("anomaly_detector")
