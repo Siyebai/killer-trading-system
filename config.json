@@ -35,8 +35,8 @@
     "max_drawdown": 15.0,
     "risk_per_trade": 1.0,
     "use_dynamic_sl_tp": true,
-    "atr_multiplier_sl": 1.4837919667696227,
-    "atr_multiplier_tp": 2.068681474928361,
+    "atr_multiplier_sl": 1.6630365606742863,
+    "atr_multiplier_tp": 2.9926680889675157,
     "kelly_fraction": 0.5,
     "max_single_loss": 2.5,
     "max_total_exposure": 15.0,
@@ -59,10 +59,10 @@
   },
   "market_state_machine": {
     "enabled": true,
-    "adx_trend_threshold": 20.61444954435653,
+    "adx_trend_threshold": 25.629218755133852,
     "adx_strong_threshold": 40,
     "vol_extreme_threshold": 0.05,
-    "bb_extreme_threshold": 2.335421651744467,
+    "bb_extreme_threshold": 3.004085602189042,
     "ema_slope_threshold": 0.001
   },
   "strategy": {
@@ -73,12 +73,12 @@
     "use_market_regime": true,
     "adaptive_weights": true,
     "v5_optimal_params": {
-      "rsi_oversold": 36.11850800235243,
-      "rsi_overbought": 75.80060872614123,
-      "bb_std": 2.1093582781960816,
-      "bb_period": 23,
-      "sl_atr_multiplier": 1.4837919667696227,
-      "tp_atr_multiplier": 2.068681474928361
+      "rsi_oversold": 39.39642090157089,
+      "rsi_overbought": 69.07579082767279,
+      "bb_std": 1.972100926692928,
+      "bb_period": 17,
+      "sl_atr_multiplier": 1.6630365606742863,
+      "tp_atr_multiplier": 2.9926680889675157
     }
   },
   "funding_rate": {

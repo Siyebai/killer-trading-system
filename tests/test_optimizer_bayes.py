@@ -116,11 +116,10 @@ class TestBayesianOptimizer:
         }
 
         df_ind = opt._compute_indicators(df, params)
-        trades, capital = opt._run_backtest(df_ind, params)
+        trades = opt._run_backtest_p0(df_ind, params)
 
         assert isinstance(trades, list)
-        assert isinstance(capital, float)
-        assert capital > 0
+        assert all('pnl' in t for t in trades)
 
     def test_evaluate_params_returns_scalar(self):
         """参数评估返回标量"""
