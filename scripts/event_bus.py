@@ -138,6 +138,7 @@ class EventBus:
         self._enable_history = enable_history
         self._max_history = max_history
         self._event_counter = 0
+        self._warned_types: set = set()  # 已警告的非标准事件类型(防日志过载)
         self._stats = {
             "total_published": 0,
             "total_subscribers": 0,
@@ -228,10 +229,12 @@ class EventBus:
                 logger.error("发布失败: payload必须是字典类型或None")
                 return None
 
-            # 验证事件类型是否标准（仅警告）
+            # 验证事件类型是否标准（每事件类型仅警告一次，避免日志过载）
             if event_type not in self.STANDARD_EVENT_TYPES:
-                logger.warning("非标准事件类型: %s (标准类型数: %d)",
-                            event_type, len(self.STANDARD_EVENT_TYPES))
+                if event_type not in self._warned_types:
+                    logger.warning("非标准事件类型: %s (标准类型数: %d)",
+                                event_type, len(self.STANDARD_EVENT_TYPES))
+                    self._warned_types.add(event_type)
 
             # 创建事件对象
             self._event_counter += 1
@@ -343,6 +346,7 @@ class EventBus:
         try:
             with self._lock:
                 self._event_history.clear()
+                self._warned_types.clear()
                 logger.info("事件历史已清空")
 
         except Exception as e:
@@ -375,6 +379,7 @@ class EventBus:
             with self._lock:
                 self._subscribers.clear()
                 self._event_history.clear()
+                self._warned_types.clear()
             logger.info("[事件总线] 已关闭")
         except Exception as e:
             logger.error(f"关闭事件总线异常: {e}")
