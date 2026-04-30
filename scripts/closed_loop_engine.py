@@ -381,17 +381,22 @@ class ClosedLoopEngine:
             'mode': 'hybrid',
             'rsi_period': 14, 'rsi_oversold': 30, 'rsi_overbought': 70,
             'bb_period': 20, 'bb_std': 2.5,
-            'atr_period': 14, 'atr_sl': 1.5, 'atr_tp': 2.0,
+            'atr_period': 14, 'atr_sl': 2.0, 'atr_tp': 2.0,  # P5: 1.5→2.0, 2.0→2.0 (宽止损匹配)
             'trailing_stop_atr': 1.0,
             'trailing_step_atr': 0.5,
             'max_consecutive_losses': 8,
-            'max_hold_bars': 24,   # P3-2新增: 时间止损（1H K线=24小时强制平仓，防止套牢）
+            'max_hold_bars': 20,   # P5: 24→20 (减少MAXH持仓)
             'daily_loss_limit': 0.05,
             'circuit_breaker_hours': 6,
             'min_confirmations': 1,
             'weight_decay': 0.95,
             'drift_threshold': 0.10,
             'breakeven_at_bb_mid': True,
+            # === P5新增参数 ===
+            'adx_max': 80,         # P5: ADX>80时禁止开仓(强趋势市场反弹弱)
+            'direction': 'LONG_ONLY',  # P5: 做多方向(做空在2025-2026市场严重亏损)
+            'vol_filter_atr_pct': 0.0025,  # P5: 波动率过滤(ATR>%时开仓)
+            'signal_threshold_base': 0.52,  # P5: 基础信号阈值
         }
         if config:
             default_config.update(config)
@@ -686,7 +691,8 @@ class ClosedLoopEngine:
         
         # P4新增: Hurst+ADX双维度阈值调整
         # 基础阈值 + Hurst调整 + ADX状态调整
-        base_thresh = 0.52
+        adx_max = self.config.get('adx_max', 80)  # P5: ADX过滤
+        base_thresh = self.config.get('signal_threshold_base', 0.52)
         if hurst > 0.55:  # Hurst趋势市场
             hurst_adj = 0.03
         elif hurst < 0.45:  # Hurst均值回归市场
@@ -694,14 +700,25 @@ class ClosedLoopEngine:
         else:
             hurst_adj = 0.0
         signal_threshold = base_thresh + hurst_adj + signal_boost
+
+        direction = self.config.get('direction', 'LONG_ONLY')  # P5: 方向过滤
         
         if long_signal > short_signal and long_signal >= signal_threshold:
+            # P5: ADX过滤 — 强趋势市场(ADX>adx_max)禁止开仓
+            if adx_val > adx_max:
+                return 0, 'none'
             # 信号方向优势检查：至少比反向信号强20%
             if short_signal > 0 and long_signal / (short_signal + 1e-10) < 1.2:
                 return 0, 'none'
             strategy = 'mean_reversion' if mr_long_score > tf_long_score else 'trend_following'
             return 1, strategy
         elif short_signal > long_signal and short_signal >= signal_threshold:
+            # P5: LONG-ONLY方向 — 禁用做空
+            if direction == 'LONG_ONLY':
+                return 0, 'none'
+            # P5: ADX过滤
+            if adx_val > adx_max:
+                return 0, 'none'
             if long_signal > 0 and short_signal / (long_signal + 1e-10) < 1.2:
                 return 0, 'none'
             strategy = 'mean_reversion' if mr_short_score > tf_short_score else 'trend_following'
@@ -869,6 +886,10 @@ class ClosedLoopEngine:
                 raw_signal, strategy = self._generate_raw_signal(df, i)
                 
                 if raw_signal != 0:
+                    # P5: 波动率过滤 — ATR>%时才有足够波动空间
+                    vol_filter = self.config.get('vol_filter_atr_pct', 0.0025)
+                    if row.get('atr_pct', 1.0) < vol_filter:
+                        continue
                     # 信号确认流水线
                     signal_data = {
                         'rsi': row['rsi'],
