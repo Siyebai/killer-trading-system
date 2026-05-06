@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-白夜系统 回测引擎 v2.0
+白夜系统 回测引擎 v2.1
 修复记录：
   v1.x Bug1: pandas None→StringArray nan bool=True，导致每根K线开仓 [已修复]
   v1.x Bug2: cum_chg方向切换未重置，累计值跨方向叠加 [已修复]
@@ -9,6 +9,8 @@
   v2.0 改进3: ATR=0/nan 安全保护
   v2.0 改进4: 月均收益按实际交易天数计算
   v2.0 改进5: 最小信号间距过滤（同向信号5根内不重复开仓）
+  v2.1 新增:  连续SL冷却机制（同品种连续2次SL→冷却16根K线≈4小时）
+              解决单边趋势行情中反转信号连续止损问题
 """
 import numpy as np
 import pandas as pd
@@ -107,11 +109,16 @@ def generate_signals(df: pd.DataFrame,
 # ── 回测引擎 v2.0 ────────────────────────────────────
 def backtest_v2(df: pd.DataFrame, sigs: np.ndarray,
                 tp_s=1.0, tp_l=0.8,
-                capital=150.0, risk_pct=0.02) -> list:
+                capital=150.0, risk_pct=0.02,
+                consec_sl_cooldown=True,
+                consec_sl_threshold=2,
+                cooldown_bars=16) -> list:
     """
     改进：
     - 开仓用下根K线open价（+1根）
     - TP/SL同帧双触时：用开盘价离哪个更近判断先触顺序
+    - [v2.1新增] consec_sl_cooldown: 连续SL冷却
+        同一品种连续 consec_sl_threshold 次SL → 冷却 cooldown_bars 根K线（默认16根≈4h）
     """
     atr_arr   = df['atr'].values
     open_arr  = df['open'].values
@@ -123,6 +130,8 @@ def backtest_v2(df: pd.DataFrame, sigs: np.ndarray,
     trades = []
     equity = capital
     pos = None
+    consec_sl_count = 0      # 连续SL计数
+    cooldown_until  = -1     # 冷却到第几根bar
 
     for i in range(n):
         # ── 平仓检查 ──
@@ -158,10 +167,22 @@ def backtest_v2(df: pd.DataFrame, sigs: np.ndarray,
                     'equity': equity,
                     'bar':   i
                 })
+                # v2.1: 连续SL冷却
+                if consec_sl_cooldown:
+                    if hit_tp:
+                        consec_sl_count = 0           # TP命中重置计数
+                    else:
+                        consec_sl_count += 1
+                        if consec_sl_count >= consec_sl_threshold:
+                            cooldown_until  = i + cooldown_bars
+                            consec_sl_count = 0       # 进入冷却，重置计数
                 pos = None
 
         # ── 开仓（用下根open，所以信号在i，开仓在i+1）──
         if pos is None and i + 1 < n and sigs[i] != 0:
+            # v2.1: 冷却期内跳过开仓
+            if consec_sl_cooldown and i < cooldown_until:
+                continue
             price = open_arr[i + 1]   # 下根开盘价开仓
             atr   = atr_arr[i]         # 用信号根ATR定SL/TP
             if atr <= 0 or np.isnan(atr):
