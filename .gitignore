@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+
+# Logs
+logs/*.log
+*.log
+
+# State
+engine/state/*.json
+!engine/state/.gitkeep
+
+# Data (large files)
+data/*_live.json
+data/*.json
+!data/.gitkeep
+
+# Config with secrets
+config/*_active.json
+*.secret
+.env
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
