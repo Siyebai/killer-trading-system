@@ -51,8 +51,14 @@ def save_state(state):
 
 def load_trades():
     if os.path.exists(LOG_FILE):
-        with open(LOG_FILE) as f:
-            return json.load(f)
+        try:
+            with open(LOG_FILE) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, Exception) as e:
+            print(f"  ⚠️ paper_trades.json读取失败({e})，备份并重置")
+            import shutil
+            shutil.copy(LOG_FILE, LOG_FILE + '.bak')
+            return []
     return []
 
 def save_trades(trades):
